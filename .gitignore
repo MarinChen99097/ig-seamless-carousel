@@ -1,0 +1,4 @@
+# Project files hold full-size photos as data URLs (tens of MB) — keep them out of history
+*.igproj.json
+# Manual backups made before each promote; git history replaces them from here on
+舊版備份/

@@ -1,0 +1,3649 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f4f3f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)">
+<title>IG 無縫輪播排版</title>
+<style>
+  /* ---------- tokens ---------- */
+  :root {
+    --bg: #f4f3f1; --panel: #ffffff; --panel-2: #f8f7f5; --text: #1b1b1f; --muted: #6d6c72;
+    --line: #e6e4e0; --line-2: #d6d3cd; --hover: #f0eeea;
+    --accent: #e8456f; --accent-2: #ff8a5b; --accent-soft: rgba(232, 69, 111, .12); --accent-text: #fff;
+    --warn: #c2680a; --warn-soft: rgba(217, 119, 6, .1);
+    --shadow: 0 1px 2px rgba(20, 18, 14, .05), 0 8px 24px -12px rgba(20, 18, 14, .18);
+    --shadow-lg: 0 18px 48px -16px rgba(20, 18, 14, .35);
+    --radius: 14px; --radius-sm: 9px;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+    --t-fast: 140ms; --t: 220ms; --t-slow: 420ms;
+    --appbar: 56px; --tabbar: 60px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121214; --panel: #1b1b1f; --panel-2: #202024; --text: #ededf0; --muted: #9b9ba5;
+      --line: #2a2a30; --line-2: #37373f; --hover: #26262c;
+      --accent: #ff5c86; --accent-2: #ff9a6b; --accent-soft: rgba(255, 92, 134, .16); --accent-text: #16161a;
+      --warn: #f0a04b; --warn-soft: rgba(240, 160, 75, .12);
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -12px rgba(0, 0, 0, .6);
+      --shadow-lg: 0 18px 48px -16px rgba(0, 0, 0, .7);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121214; --panel: #1b1b1f; --panel-2: #202024; --text: #ededf0; --muted: #9b9ba5;
+    --line: #2a2a30; --line-2: #37373f; --hover: #26262c;
+    --accent: #ff5c86; --accent-2: #ff9a6b; --accent-soft: rgba(255, 92, 134, .16); --accent-text: #16161a;
+    --warn: #f0a04b; --warn-soft: rgba(240, 160, 75, .12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -12px rgba(0, 0, 0, .6);
+    --shadow-lg: 0 18px 48px -16px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+
+  /* ---------- base ---------- */
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    min-height: 100dvh; overscroll-behavior-y: none;
+  }
+  [hidden] { display: none !important; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  kbd { font-size: 11px; border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--panel-2); font-family: inherit; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; letter-spacing: .01em; }
+  .info { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 8px 0 0; }
+  .warn { color: var(--warn); }
+  svg.ic { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- app bar ---------- */
+  .appbar {
+    position: sticky; top: 0; z-index: 30; height: var(--appbar);
+    display: flex; align-items: center; gap: 8px; padding: 0 max(12px, env(safe-area-inset-left)) 0 max(14px, env(safe-area-inset-left));
+    background: color-mix(in srgb, var(--panel) 86%, transparent);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; margin-right: auto; }
+  .logo {
+    width: 28px; height: 28px; border-radius: 9px; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
+  }
+  .logo svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .brand h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: .01em; white-space: nowrap; }
+  .brand small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; margin-top: -2px; white-space: nowrap; }
+  .appbar .actions { display: flex; align-items: center; gap: 6px; }
+
+  /* ---------- buttons ---------- */
+  button {
+    padding: 8px 12px; min-height: 36px; border: 1px solid var(--line-2); border-radius: var(--radius-sm);
+    font-size: 13px; cursor: pointer; background: var(--panel); color: var(--text);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+      color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), opacity var(--t-fast);
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none;
+  }
+  @media (hover: hover) { button:hover:not(:disabled) { background: var(--hover); border-color: var(--line-2); } }
+  button:active:not(:disabled) { transform: scale(.965); }
+  button:disabled { opacity: .38; cursor: not-allowed; }
+  button.primary { border-color: transparent; font-weight: 600; color: var(--accent-text); background: var(--accent); box-shadow: 0 6px 16px -8px var(--accent); }
+  @media (hover: hover) { button.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.06); } }
+  button.ghost { border-color: transparent; background: transparent; }
+  @media (hover: hover) { button.ghost:hover:not(:disabled) { background: var(--hover); } }
+  button.icon { padding: 0; width: 36px; }
+  button.wide { width: 100%; font-size: 14px; min-height: 40px; }
+  button.on, .seg button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  #brush.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .appbar .lbl { display: inline; }
+
+  /* ---------- fields ---------- */
+  .field { margin-bottom: 14px; }
+  .field > label, .label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  select, input[type=number], textarea {
+    width: 100%; padding: 8px 10px; min-height: 36px; border-radius: var(--radius-sm);
+    border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); font-size: 14px;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  }
+  select:focus, input[type=number]:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  select { appearance: none; -webkit-appearance: none; padding-right: 30px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+  select optgroup { font-style: normal; }
+  textarea { min-height: 72px; resize: vertical; font-family: inherit; line-height: 1.5; }
+  input[type=color] { width: 40px; height: 36px; border: 1px solid var(--line-2); border-radius: var(--radius-sm); background: var(--panel-2); padding: 3px; flex: none; cursor: pointer; }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+  input[type=color]::-moz-color-swatch { border: 0; border-radius: 6px; }
+  input[type=range] { width: 100%; height: 28px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--line-2); }
+  input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line-2); }
+  input[type=range]::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%;
+    background: var(--panel); border: 2px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform var(--t-fast) var(--ease); }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--panel); border: 2px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  input[type=range]:active::-webkit-slider-thumb { transform: scale(1.2); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .inline { display: flex; align-items: center; gap: 8px; }
+  .inline input[type=range] { flex: 1; min-width: 0; }
+  .inline input[type=number] { width: 72px; flex: none; padding: 5px 8px; min-height: 34px; }
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 3px; border-radius: 11px; background: var(--panel-2); border: 1px solid var(--line); }
+  .seg button { padding: 6px 0; min-height: 32px; font-size: 12px; border-color: transparent; background: transparent; border-radius: 8px; }
+  .seg button.on { background: var(--panel); border-color: var(--line-2); box-shadow: var(--shadow); color: var(--accent); }
+  .seg.wide5 { grid-template-columns: repeat(5, 1fr); }
+  .seg.wide3 { grid-template-columns: repeat(3, 1fr); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { padding: 5px 11px; min-height: 30px; font-size: 12px; border-radius: 999px; }
+  .emoji { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 150px; overflow-y: auto; padding: 2px; border-radius: var(--radius-sm); background: var(--panel-2); }
+  .emoji button { padding: 2px 0; min-height: 34px; font-size: 20px; border: 0; background: transparent; border-radius: 8px; }
+
+  /* ---------- layout ---------- */
+  .shell {
+    display: grid; grid-template-columns: 336px minmax(0, 1fr); gap: 20px;
+    padding: 18px max(20px, env(safe-area-inset-right)) 32px max(20px, env(safe-area-inset-left));
+    max-width: 1600px; margin: 0 auto;
+  }
+  .side {
+    position: sticky; top: calc(var(--appbar) + 18px); align-self: start;
+    max-height: calc(100dvh - var(--appbar) - 36px); overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin; padding-right: 2px;
+  }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; box-shadow: var(--shadow); }
+  .side .card { margin-bottom: 12px; }
+  .main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+  /* entrance (once) */
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .appbar { animation: rise var(--t-slow) var(--ease) backwards; }
+  .side > .card, .main > * { animation: rise var(--t-slow) var(--ease) backwards; }
+  .side > .card:nth-child(2) { animation-delay: 50ms; } .side > .card:nth-child(3) { animation-delay: 100ms; }
+  .side > .card:nth-child(4) { animation-delay: 150ms; } .side > .card:nth-child(n+5) { animation-delay: 200ms; }
+  .main > *:nth-child(2) { animation-delay: 80ms; }
+
+  /* ---------- sections (details) ---------- */
+  details.section { border-top: 1px solid var(--line); padding: 2px 0 0; margin: 10px 0 0; }
+  details.section:first-child, .edit-empty + details.section { border-top: 0; margin-top: 0; }
+  .main:has(#editor[hidden]) .previews, .shell:has(#editor[hidden]) > .previews { display: none; }
+  details.section > summary {
+    cursor: pointer; font-size: 13px; font-weight: 600; list-style: none; display: flex; align-items: center;
+    padding: 10px 0; margin: 0 0 2px; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  details.section > summary::-webkit-details-marker { display: none; }
+  details.section > summary::after {
+    content: ''; margin-left: auto; width: 8px; height: 8px; border-right: 1.8px solid var(--muted); border-bottom: 1.8px solid var(--muted);
+    transform: rotate(-45deg); transition: transform var(--t) var(--ease); flex: none;
+  }
+  details.section[open] > summary::after { transform: rotate(45deg); }
+  details.section > summary + * { margin-top: 2px; }
+  details.sub { margin-top: 10px; }
+  details.sub > summary { cursor: pointer; font-size: 12px; color: var(--muted); list-style: none; padding: 6px 0; display: flex; align-items: center; }
+  details.sub > summary::-webkit-details-marker { display: none; }
+  details.sub > summary::after { content: ''; margin-left: auto; width: 6px; height: 6px; border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted); transform: rotate(-45deg); transition: transform var(--t) var(--ease); }
+  details.sub[open] > summary::after { transform: rotate(45deg); }
+  @supports (interpolate-size: allow-keywords) {
+    details { interpolate-size: allow-keywords; }
+    details::details-content { block-size: 0; overflow-y: clip; opacity: 0; transition: block-size var(--t) var(--ease), content-visibility var(--t) allow-discrete, opacity var(--t) var(--ease); }
+    details[open]::details-content { block-size: auto; opacity: 1; }
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.99); } to { opacity: 1; transform: none; } }
+  details.section.props:not([hidden]) { animation: pop var(--t-slow) var(--ease) backwards; }
+
+  /* ---------- drop zone ---------- */
+  .drop {
+    border: 1.5px dashed var(--line-2); border-radius: var(--radius); padding: 18px 12px; text-align: center;
+    color: var(--muted); cursor: pointer; font-size: 13px; background: var(--panel-2);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: border-color var(--t), background var(--t), color var(--t), transform var(--t) var(--ease);
+  }
+  .drop .ic { width: 26px; height: 26px; color: var(--accent); stroke-width: 1.6; }
+  .drop b { color: var(--text); font-weight: 600; }
+  @media (hover: hover) { .drop:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--text); } }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--text); transform: scale(1.015); }
+
+  /* ---------- templates ---------- */
+  .templates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .templates button { padding: 5px 5px 6px; font-size: 11px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; font-size: 12px; background: var(--panel-2); border-color: var(--line); }
+  @media (hover: hover) { .templates button:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow); } }
+  .templates svg { width: 100%; height: auto; display: block; border-radius: 6px; }
+  .templates button { min-width: 0; }
+  .templates span { white-space: normal; line-height: 1.3; text-align: center; }
+
+  /* ---------- layers ---------- */
+  .layers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .layers li {
+    display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 5px; border-radius: 10px; min-height: 42px;
+    border: 1px solid transparent; cursor: grab; font-size: 12px; background: transparent;
+    transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+  }
+  @media (hover: hover) { .layers li:hover { background: var(--hover); } }
+  .layers li.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .layers li.drop-before { box-shadow: 0 -2px 0 var(--accent); }
+  .layers li.drop-after { box-shadow: 0 2px 0 var(--accent); }
+  .layers .thumb { width: 40px; height: 30px; object-fit: cover; border-radius: 6px; flex: none; background: var(--panel-2); }
+  .layers .thumb.empty { background: repeating-linear-gradient(45deg, var(--line-2) 0 4px, transparent 4px 8px); border: 1px dashed var(--muted); }
+  .layers span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .layers .tog { border: 0; padding: 0; width: 30px; min-height: 30px; font-size: 13px; line-height: 1; flex: none; opacity: .4; background: none; border-radius: 8px; }
+  .layers .tog.on { opacity: 1; }
+  .layers li.off span { opacity: .45; text-decoration: line-through; }
+  .layers:empty::before { content: '還沒有圖層'; display: block; padding: 10px 4px; color: var(--muted); font-size: 12px; }
+
+  /* ---------- stage ---------- */
+  .stage-card { padding: 12px; }
+  .stagebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .toolbar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .tgroup { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); flex: none; }
+  .tgroup button { width: 32px; min-height: 30px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--text); }
+  .tgroup button .ic { width: 17px; height: 17px; }
+  .tgroup button:disabled { opacity: .3; }
+  .sel-only { animation: pop var(--t) var(--ease) backwards; }
+  body:has(#props[hidden]) .sel-only { display: none; }
+  .thint { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body:not(:has(#props[hidden])) .thint { display: none; }
+  .zoombar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-left: auto; }
+  .zoombar label { white-space: nowrap; }
+  .zoombar input[type=range] { width: 120px; }
+  .zoombar #stageZoomNote { min-width: 56px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+  .zoombar button { padding: 5px 10px; min-height: 30px; font-size: 12px; white-space: nowrap; }
+  .offnote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 12px;
+    border: 1px solid var(--warn); background: var(--warn-soft); border-radius: var(--radius-sm); font-size: 13px; color: var(--warn); animation: pop var(--t) var(--ease) backwards; }
+  .offnote button { min-height: 30px; padding: 4px 10px; font-size: 12px; color: inherit; border-color: currentColor; background: transparent; }
+  .stage-wrap { position: relative; border-radius: 10px; overflow-x: auto; overflow-y: hidden; background: #0b0b0d;
+    touch-action: none; user-select: none; -webkit-user-select: none; outline: 3px solid transparent; outline-offset: -3px; transition: outline-color var(--t); }
+  .stage-wrap.over { outline-color: var(--accent); }
+  .stage-inner { position: relative; width: 100%; }
+  #stage, #ui { display: block; width: 100%; }
+  #ui { position: absolute; inset: 0; height: 100%; }
+  #editor:not([hidden]) { animation: pop var(--t-slow) var(--ease) backwards; }
+
+  /* empty state */
+  .empty-state { padding: 48px 16px 40px; text-align: center; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .empty-state p { margin: 0; max-width: 340px; font-size: 13px; }
+  .empty-state strong { display: block; color: var(--text); font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .empty-art { position: relative; width: 190px; height: 92px; }
+  .empty-art i { position: absolute; top: 0; width: 56px; height: 70px; border-radius: 10px; background: linear-gradient(160deg, var(--accent), var(--accent-2)); box-shadow: var(--shadow-lg); opacity: .9; }
+  .empty-art i:nth-child(1) { left: 6px; transform: rotate(-8deg) translateY(10px); animation: float1 5s ease-in-out infinite; }
+  .empty-art i:nth-child(2) { left: 67px; top: 4px; background: linear-gradient(160deg, var(--accent-2), #ffd166); animation: float2 5s ease-in-out infinite; }
+  .empty-art i:nth-child(3) { left: 128px; transform: rotate(8deg) translateY(10px); background: linear-gradient(160deg, #7c5cff, var(--accent)); animation: float3 5s ease-in-out infinite; }
+  @keyframes float1 { 50% { transform: rotate(-9deg) translateY(2px); } }
+  @keyframes float2 { 50% { transform: translateY(-7px); } }
+  @keyframes float3 { 50% { transform: rotate(9deg) translateY(2px); } }
+
+  /* ---------- previews ---------- */
+  .row { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .pv-side { display: grid; gap: 20px; min-width: 0; }
+  @media (max-width: 1100px) and (min-width: 901px) { .row { grid-template-columns: 1fr; } }
+  .phone { width: 320px; max-width: 100%; border: 1px solid var(--line-2); border-radius: 22px; overflow: hidden; background: var(--panel-2); flex: none; box-shadow: var(--shadow); }
+  .phone-top { padding: 10px 14px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+  .phone-top::before { content: ''; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .swipe { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; background: #000; }
+  .swipe::-webkit-scrollbar { display: none; }
+  .swipe canvas { flex: 0 0 100%; width: 100%; display: block; scroll-snap-align: start; outline: 1px solid var(--line); outline-offset: -1px; }
+  .dots { display: flex; justify-content: center; gap: 5px; padding: 10px; }
+  .dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--line-2); transition: width var(--t) var(--ease), background var(--t); }
+  .dots i.on { background: var(--accent); width: 16px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+  .thumbs figure { margin: 0; }
+  .thumbs canvas { width: 100%; display: block; border-radius: 6px; outline: 1px solid var(--line); outline-offset: -1px; background: var(--panel-2); }
+  .thumbs figcaption { font-size: 11px; color: var(--muted); text-align: center; padding: 3px 0 6px; font-variant-numeric: tabular-nums; }
+  .profile { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; width: 320px; max-width: 100%; border-radius: 10px; overflow: hidden; }
+  .profile div { position: relative; padding-top: 133.33%; background: var(--hover); outline: 1px solid var(--line); outline-offset: -1px; }
+  .profile canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .previews { display: grid; gap: 20px; }
+
+  /* ---------- context menu ---------- */
+  .menu { position: fixed; z-index: 40; min-width: 160px; padding: 5px; border-radius: 12px;
+    background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-lg);
+    display: flex; flex-direction: column; transform-origin: top left; animation: menu var(--t-fast) var(--ease) backwards; }
+  @keyframes menu { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+  .menu button { border: 0; text-align: left; justify-content: flex-start; padding: 8px 10px; min-height: 36px; border-radius: 8px; background: transparent; }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+
+  /* ---------- tips ---------- */
+  .tips { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .tips p { margin: 0 0 6px; }
+
+  /* ---------- tabs (sidebar top on desktop, bottom bar on phones) ---------- */
+  .tabbar {
+    position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px;
+    margin-bottom: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow);
+  }
+  .tabbar button { flex-direction: row; gap: 6px; padding: 6px 0; min-height: 38px; border: 0; background: transparent; font-size: 12px; color: var(--muted); border-radius: 9px; position: relative; }
+  .tabbar button .ic { width: 17px; height: 17px; transition: transform var(--t) var(--ease); }
+  .tabbar button.on { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .tabbar button:active { transform: scale(.97); }
+  .tabbar button .badge { position: absolute; top: 6px; right: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0; transform: scale(.4); transition: opacity var(--t), transform var(--t) var(--ease); }
+  .tabbar button.has .badge { opacity: 1; transform: none; }
+  .side .group:not(.active) { display: none; }
+  .side .group.active { animation: pop var(--t) var(--ease) backwards; }
+  .edit-empty { display: none; padding: 22px 8px; text-align: center; color: var(--muted); font-size: 13px; }
+  .group-edit:not(:has(details:not([hidden]))) .edit-empty { display: block; }
+  .stage-card { min-height: calc(100dvh - var(--appbar) - 36px); display: flex; flex-direction: column; }
+  .main:has(#editor:not([hidden])) .stage-card { min-height: 0; }
+  .stage-card .empty-state { flex: 1; justify-content: center; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1100px) { .shell { grid-template-columns: 300px minmax(0, 1fr); gap: 16px; } .templates { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 900px) {
+    :root { --appbar: 52px; }
+    .shell { display: flex; flex-direction: column; padding: 0 0 calc(var(--tabbar) + env(safe-area-inset-bottom) + 12px); }
+    .main { order: -1; position: sticky; top: var(--appbar); z-index: 20; padding: 8px 10px 0; background: linear-gradient(var(--bg) 85%, transparent); }
+    .main.tall { position: static; }
+    .shell > .previews { margin: 0 10px; }
+    .appbar .lbl { display: none; }
+    .appbar button { min-width: 38px; }
+    .brand small { display: none; }
+    .stage-card { padding: 10px; }
+    .stage-wrap { max-height: 46dvh; }
+    .stagebar { gap: 8px; margin-bottom: 8px; }
+    .toolbar { flex: 1 1 100%; overflow-x: auto; scrollbar-width: none; margin: 0 -10px; padding: 0 10px; -webkit-overflow-scrolling: touch; }
+    .toolbar::-webkit-scrollbar { display: none; }
+    .tgroup button { width: 36px; min-height: 34px; }
+    .thint { white-space: normal; }
+    .zoombar { flex: 1 1 100%; margin-left: 0; }
+    .zoombar input[type=range] { flex: 1; width: auto; }
+    .side { position: static; align-self: stretch; max-height: none; overflow: visible; padding: 12px 10px 0; }
+    .side .card { margin-bottom: 10px; }
+    .tabbar {
+      position: fixed; top: auto; left: 0; right: 0; bottom: 0; z-index: 30; height: calc(var(--tabbar) + env(safe-area-inset-bottom));
+      padding: 6px 8px env(safe-area-inset-bottom); margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; box-shadow: none;
+      background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .tabbar button { flex-direction: column; gap: 2px; padding: 4px 0; min-height: 44px; font-size: 11px; border-radius: 10px; }
+    .tabbar button .ic { width: 20px; height: 20px; }
+    .tabbar button.on .ic { transform: translateY(-1px) scale(1.08); }
+    .tabbar button:active { transform: none; }
+    .tabbar button .badge { top: 4px; right: calc(50% - 18px); width: 7px; height: 7px; }
+    .stage-card { min-height: 0; }
+    .templates { grid-template-columns: repeat(3, 1fr); }
+    .emoji { grid-template-columns: repeat(10, 1fr); }
+    .phone { width: 100%; }
+    .profile { width: 100%; }
+    .previews { gap: 16px; }
+    .row { grid-template-columns: 1fr; gap: 16px; }
+    .thumbs { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
+    .side > .card, .main > * { animation: none; }
+  }
+  @media (max-width: 420px) { .templates { grid-template-columns: 1fr 1fr; } .emoji { grid-template-columns: repeat(8, 1fr); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    .empty-art i { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="8" height="14" rx="2"/><rect x="13" y="5" width="8" height="14" rx="2"/><path d="M7 12h10"/></svg></div>
+    <div><h1>IG 無縫輪播排版</h1><small>全部在本機處理，不上傳</small></div>
+  </div>
+  <div class="actions">
+    <button id="themeBtn" class="ghost icon" title="切換深色／淺色" aria-label="切換深色／淺色">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-1-.1-1.4A5.5 5.5 0 0 1 13.4 3.1C13 3 12.5 3 12 3z"/></svg>
+    </button>
+    <button id="openProj" class="ghost" title="開啟專案檔（.igproj.json）"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">開啟專案</span></button>
+    <button id="saveProj" class="ghost" title="Ctrl+S"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3"/><path d="M8 21v-6h8v6"/></svg><span class="lbl">儲存專案</span></button>
+    <input type="file" id="projFile" accept=".json,application/json" hidden>
+    <button id="export" class="primary" disabled title="下載全部（zip）"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v3h16v-3"/></svg><span class="lbl">下載全部</span></button>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="side">
+<nav class="tabbar" aria-label="功能分頁">
+    <button data-tab="layout" class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="2"/><rect x="14" y="3" width="7" height="8" rx="2"/><rect x="14" y="15" width="7" height="6" rx="2"/></svg>版型</button>
+    <button data-tab="canvas"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/></svg>畫布</button>
+    <button data-tab="layers"><svg class="ic" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>圖層</button>
+    <button data-tab="edit"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="m12.5 7.5 4 4"/></svg>編輯<span class="badge"></span></button>
+  </nav>
+    <section class="card group group-layout active" data-group="layout">
+      <div class="field">
+        <div class="drop" id="drop">
+          <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg>
+          <span><b>加入照片</b>（可多選）<br>或把照片拖進來</span>
+        </div>
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <input type="file" id="slotFile" accept="image/*" hidden>
+      </div>
+      <p class="info" id="autosave" style="margin:-4px 0 12px"></p>
+
+      <details class="section" open>
+        <summary>整組版型</summary>
+        <div class="templates" id="templates"></div>
+        <p class="info">決定張數與比例，現有照片會依序放進欄位。</p>
+      </details>
+
+      <details class="section" open>
+        <summary>頁面版型</summary>
+        <div class="templates" id="pageTemplates"></div>
+        <p class="info">畫布空白時直接套用；已有內容時接在最後面、自動加張數，可一頁一頁組出整組輪播。把照片拖到欄位上或點欄位選照片，放進去後可直接拖曳、滾輪縮放來裁切。</p>
+      </details>
+    </section>
+
+    <section class="card group group-canvas" data-group="canvas">
+      <details class="section" open>
+        <summary>畫布</summary>
+        <div class="field grid2">
+          <div>
+            <label class="label" for="count">張數</label>
+            <input type="number" id="count" min="1" max="20" value="3">
+          </div>
+          <div>
+            <label class="label" for="bg">背景顏色</label>
+            <input type="color" id="bg" value="#ffffff">
+          </div>
+        </div>
+        <div class="field">
+          <label for="ratio">每張比例</label>
+          <select id="ratio">
+            <option value="1350">4:5 直式 1080×1350（建議）</option>
+            <option value="1080">1:1 正方形 1080×1080</option>
+            <option value="1440">3:4 直式 1080×1440</option>
+            <option value="1920">9:16 直式 1080×1920</option>
+            <option value="566">1.91:1 橫式 1080×566</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="bgType">背景樣式</label>
+          <select id="bgType">
+            <option value="solid">單色</option>
+            <option value="gradient">漸層（橫跨整條，接縫連續）</option>
+            <option value="photo">模糊照片</option>
+          </select>
+        </div>
+        <div class="field" id="bgGradField" hidden>
+          <span class="label">漸層第二色與角度</span>
+          <div class="inline"><input type="color" id="bg2" value="#b7c7ff"><input type="range" id="bgAngle" min="0" max="360" step="1" value="90"><input type="number" id="bgAngleN" min="0" max="360" value="90"></div>
+        </div>
+        <div class="field" id="bgPhotoField" hidden>
+          <label for="bgPhoto">用哪張照片</label>
+          <select id="bgPhoto"></select>
+          <div class="inline" style="margin-top:8px"><span class="label" style="margin:0;flex:none">模糊</span><input type="range" id="bgBlur" min="0" max="200" step="1" value="40"></div>
+          <div class="inline"><span class="label" style="margin:0;flex:none">壓暗</span><input type="range" id="bgDim" min="0" max="90" step="1" value="20"></div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <summary>輸出</summary>
+        <div class="field">
+          <label for="quality">檔案格式</label>
+          <select id="quality">
+            <option value="jpg">JPG（品質 95，檔案小）</option>
+            <option value="png">PNG（無損，檔案大）</option>
+          </select>
+        </div>
+        <p class="info" id="info"></p>
+        <p class="info">按右上角「下載全部」取得 zip。上傳到 IG 時：同一則貼文依 01、02、03… 的順序選圖，不要再手動裁切。</p>
+      </details>
+    </section>
+
+    <section class="card group group-layers" data-group="layers">
+      <details class="section" open>
+        <summary>圖層</summary>
+        <ul class="layers" id="layers"></ul>
+        <p class="info">上面的蓋在上面，可拖曳排序。</p>
+        <div class="grid2" style="margin-top:10px">
+          <button id="addBlock" title="純色方塊，可當照片的底框">新增色塊</button>
+          <button id="addSlot" title="空白照片欄位">新增照片欄位</button>
+          <button id="addText">新增文字</button>
+          <button id="brush" title="在畫布上拖曳畫線，放開就變成一個圖層">畫筆</button>
+        </div>
+        <div class="field inline" id="brushOpts" hidden style="margin-top:10px">
+          <span class="label" style="margin:0;flex:none">筆</span>
+          <input type="color" id="brushColor" value="#ff2d95">
+          <input type="range" id="brushWidth" min="2" max="80" step="1" value="12">
+        </div>
+        <details class="sub">
+          <summary>表情貼紙</summary>
+          <div class="emoji" id="emoji"></div>
+        </details>
+      </details>
+    </section>
+
+    <section class="card group group-edit" data-group="edit">
+      <p class="edit-empty">點畫布上的物件，或到「圖層」分頁選一個，就能在這裡調整。</p>
+
+      <details class="section props" id="props" open hidden>
+        <summary>選取的照片</summary>
+        <div class="field" id="shapeField">
+          <span class="label">形狀</span>
+          <div class="seg" id="shape">
+            <button data-shape="rect">矩形</button>
+            <button data-shape="rounded">圓角</button>
+            <button data-shape="ellipse">橢圓</button>
+            <button data-shape="circle">圓形</button>
+          </div>
+          <div class="seg wide3" id="shapeMore" style="margin-top:6px">
+            <button data-shape="triangle">三角形</button>
+            <button data-shape="star">星形</button>
+            <button data-shape="heart">愛心</button>
+            <button data-shape="bubble">對話框</button>
+            <button data-shape="line">直線</button>
+            <button data-shape="arrow">箭頭</button>
+          </div>
+        </div>
+        <div class="field" id="lineWField" hidden>
+          <label for="lineW">線條粗細</label>
+          <div class="inline"><input type="range" id="lineW" min="1" max="120" step="1"><input type="number" id="lineWN" min="1" max="120"></div>
+        </div>
+        <div class="field" id="fillField">
+          <label for="fill">色塊顏色</label>
+          <input type="color" id="fill">
+        </div>
+        <div class="field" id="radiusField">
+          <label for="radius">圓角大小</label>
+          <div class="inline"><input type="range" id="radius" min="0" max="100" step="1"><input type="number" id="radiusN" min="0" max="100"></div>
+        </div>
+        <div class="field photo-only">
+          <span class="label">框內照片（裁切）</span>
+          <div class="grid2">
+            <button id="cropMode" title="也可以在照片上按兩下">調整框內照片</button>
+            <button id="restoreAspect" title="框回到照片原本的長寬比、取消裁切">恢復原始比例</button>
+          </div>
+          <p class="info" id="cropHint" hidden>裁切中：拖曳移動照片、滾輪縮放，半透明部分會被裁掉。<kbd>Esc</kbd>／<kbd>Enter</kbd> 或點框外結束。</p>
+        </div>
+        <div class="field photo-only">
+          <label for="zoomIn">框內縮放</label>
+          <div class="inline"><input type="range" id="zoomIn" min="1" max="5" step="0.01"><button id="resetCrop" title="框內位置與縮放歸零">置中</button></div>
+        </div>
+        <div class="field photo-only">
+          <span class="label">翻轉</span>
+          <div class="grid2">
+            <button id="flipH">左右翻轉</button>
+            <button id="flipV">上下翻轉</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="rot">旋轉（度）</label>
+          <div class="inline"><input type="range" id="rot" min="-180" max="180" step="1"><input type="number" id="rotN" min="-180" max="180"></div>
+        </div>
+        <div class="field" id="borderField">
+          <label for="border">外框粗細（px）</label>
+          <div class="inline"><input type="range" id="border" min="0" max="80" step="1"><input type="color" id="borderColor"></div>
+        </div>
+        <div class="field">
+          <label for="opacity">不透明度</label>
+          <div class="inline"><input type="range" id="opacity" min="10" max="100" step="1"><input type="number" id="opacityN" min="10" max="100"></div>
+        </div>
+        <div class="field" id="drawField" hidden>
+          <label for="drawColor">筆畫顏色與粗細</label>
+          <div class="inline"><input type="color" id="drawColor"><input type="range" id="drawWidth" min="1" max="120" step="1"></div>
+        </div>
+        <div class="field">
+          <label for="shadowBlur">陰影（模糊／位移／顏色）</label>
+          <div class="inline">
+            <input type="range" id="shadowBlur" min="0" max="120" step="1" title="模糊">
+            <input type="color" id="shadowColor">
+          </div>
+          <div class="inline" style="margin-top:6px">
+            <span class="label" style="margin:0;flex:none">X</span><input type="number" id="shadowX" step="1">
+            <span class="label" style="margin:0;flex:none">Y</span><input type="number" id="shadowY" step="1">
+            <button id="shadowOff" title="清除陰影">清除</button>
+          </div>
+        </div>
+        <button id="replacePhoto" class="wide photo-only">換照片</button>
+      </details>
+
+      <details class="section props" id="textProps" open hidden>
+        <summary>文字</summary>
+        <div class="field">
+          <textarea id="textInput" rows="3" placeholder="輸入文字（可換行）"></textarea>
+        </div>
+        <div class="field">
+          <label for="font">字型</label>
+          <select id="font"></select>
+          <p class="info" id="fontNote"></p>
+          <p class="info warn" id="glyphWarn" hidden></p>
+        </div>
+        <div class="field grid2">
+          <div>
+            <label class="label" for="fontSize">字級（px）</label>
+            <input type="number" id="fontSize" min="8" max="2000" step="1">
+          </div>
+          <div>
+            <label class="label" for="color">文字顏色</label>
+            <input type="color" id="color">
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">對齊與樣式</span>
+          <div class="seg wide5">
+            <button data-align="left">靠左</button>
+            <button data-align="center">置中</button>
+            <button data-align="right">靠右</button>
+            <button id="bold"><b>粗</b></button>
+            <button id="italic"><i>斜</i></button>
+          </div>
+          <div class="seg" style="margin-top:6px;grid-template-columns:1fr">
+            <button id="vertical">直排（由上往下、由右往左）</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="lineHeight">行距倍數</label>
+          <div class="inline"><input type="range" id="lineHeight" min="0.8" max="3" step="0.05"><input type="number" id="lineHeightN" min="0.8" max="3" step="0.05"></div>
+        </div>
+        <div class="field">
+          <label for="letterSpacing">字距（px）</label>
+          <div class="inline"><input type="range" id="letterSpacing" min="-20" max="120" step="1"><input type="number" id="letterSpacingN" min="-20" max="120"></div>
+        </div>
+        <div class="field">
+          <label for="strokeWidth">外框（描邊）粗細與顏色</label>
+          <div class="inline"><input type="range" id="strokeWidth" min="0" max="60" step="1"><input type="color" id="strokeColor"></div>
+        </div>
+        <div class="field">
+          <span class="label">文字底色</span>
+          <div class="inline">
+            <button id="textBgOn">開／關</button>
+            <input type="color" id="textBg">
+            <input type="number" id="textBgPad" min="0" max="200" step="1" title="留白">
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">文字風格</span>
+          <div class="chips" id="textPresets"></div>
+        </div>
+      </details>
+
+      <details class="section props" id="adjustProps" open hidden>
+        <summary>照片調整</summary>
+        <div class="field">
+          <span class="label">一鍵濾鏡</span>
+          <div class="chips" id="filterPresets"></div>
+        </div>
+        <div class="field"><label for="bright">亮度</label><div class="inline"><input type="range" id="bright" min="20" max="200" step="1"><input type="number" id="brightN" min="20" max="200"></div></div>
+        <div class="field"><label for="contrast">對比</label><div class="inline"><input type="range" id="contrast" min="20" max="200" step="1"><input type="number" id="contrastN" min="20" max="200"></div></div>
+        <div class="field"><label for="satur">飽和度</label><div class="inline"><input type="range" id="satur" min="0" max="250" step="1"><input type="number" id="saturN" min="0" max="250"></div></div>
+        <div class="field"><label for="warmth">色溫（負＝冷、正＝暖）</label><div class="inline"><input type="range" id="warmth" min="-100" max="100" step="1"><input type="number" id="warmthN" min="-100" max="100"></div></div>
+        <div class="field"><label for="fade">褪色（黑白）</label><div class="inline"><input type="range" id="fade" min="0" max="100" step="1"><input type="number" id="fadeN" min="0" max="100"></div></div>
+        <div class="field"><label for="blurPx">模糊</label><div class="inline"><input type="range" id="blurPx" min="0" max="120" step="1"><input type="number" id="blurPxN" min="0" max="120"></div></div>
+      </details>
+    </section>
+
+    <section class="card group group-layout tips" data-group="layout">
+      <details class="section">
+      <summary>操作提示</summary>
+      <p>拖曳移動；四角等比縮放、四邊中點改框的寬高；上方圓點旋轉（<kbd>Shift</kbd> 每 15°）。靠近中心／切割線／邊緣會吸附，<kbd>Alt</kbd> 暫停吸附。</p>
+      <p>雙擊照片裁切、雙擊文字改字。文字用四角縮放會直接改字級。鎖住的圖層在畫布上點不到，要從圖層清單選。</p>
+      <p>方向鍵微調（<kbd>Shift</kbd> 10px），<kbd>Delete</kbd> 刪除，右鍵調圖層順序，<kbd>Ctrl</kbd>+<kbd>S</kbd> 儲存。</p>
+      </details>
+    </section>
+  </aside>
+
+  <main class="main">
+    <section class="card stage-card">
+      <div id="emptyState" class="empty-state">
+        <div class="empty-art" aria-hidden="true"><i></i><i></i><i></i></div>
+        <p><strong>先選一個版型，或直接加入照片</strong>切成多張後，在 IG 同一則貼文左右滑動時會接成一整幅。</p>
+      </div>
+      <div id="editor" hidden>
+        <div class="stagebar">
+          <div class="toolbar">
+            <div class="tgroup">
+              <button id="undo" title="復原（Ctrl+Z）" aria-label="復原" disabled><svg class="ic" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+              <button id="redo" title="重做（Ctrl+Y）" aria-label="重做" disabled><svg class="ic" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+            </div>
+            <div class="tgroup sel-only">
+              <button data-act="centerStrip" title="整條置中：放到整條的正中間" aria-label="整條置中"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v18"/><rect x="5" y="8" width="14" height="8" rx="1.5"/></svg></button>
+              <button data-act="centerSlide" title="置中於本張：放到目前所在那一張的中間" aria-label="置中於本張"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 8v8"/></svg></button>
+              <button data-act="centerV" title="垂直置中" aria-label="垂直置中"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12h18"/><rect x="8" y="5" width="8" height="14" rx="1.5"/></svg></button>
+              <button data-act="fillH" title="高度填滿：高度等於畫面高度並貼齊上下" aria-label="高度填滿"><svg class="ic" viewBox="0 0 24 24"><path d="M3 3h18M3 21h18"/><path d="M12 7v10"/><path d="m9 10 3-3 3 3M9 14l3 3 3-3"/></svg></button>
+              <button data-act="top" title="靠上" aria-label="靠上"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16"/><rect x="7" y="8" width="10" height="10" rx="1.5"/></svg></button>
+              <button data-act="bottom" title="靠下" aria-label="靠下"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="7" y="6" width="10" height="10" rx="1.5"/></svg></button>
+            </div>
+            <div class="tgroup sel-only">
+              <button data-act="front" title="移到最上層（Ctrl+Shift+]）" aria-label="移到最上層"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20V8"/><path d="m8 12 4-4 4 4"/><path d="M4 4h16"/></svg></button>
+              <button data-act="up" title="上移一層（Ctrl+]）" aria-label="上移一層"><svg class="ic" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5"/></svg></button>
+              <button data-act="down" title="下移一層（Ctrl+[）" aria-label="下移一層"><svg class="ic" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></button>
+              <button data-act="back" title="移到最下層（Ctrl+Shift+[）" aria-label="移到最下層"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m8 12 4 4 4-4"/><path d="M4 20h16"/></svg></button>
+            </div>
+            <div class="tgroup sel-only">
+              <button data-act="dup" title="複製" aria-label="複製"><svg class="ic" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+              <button data-act="lock" title="鎖定／解鎖" aria-label="鎖定／解鎖"><svg class="ic" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
+              <button data-act="hide" title="隱藏／顯示" aria-label="隱藏／顯示"><svg class="ic" viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10 10 0 0 1 12 5c5 0 9 4 10 7a11 11 0 0 1-2.3 3.4M6.6 6.6A11 11 0 0 0 2 12c1 3 5 7 10 7a9.8 9.8 0 0 0 3.4-.6"/></svg></button>
+              <button data-act="remove" title="刪除（Delete）" aria-label="刪除"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg></button>
+            </div>
+            <span class="thint">點選畫布上的物件，就會出現對齊與排序工具</span>
+          </div>
+          <div class="zoombar">
+            <label for="stageZoom">放大</label>
+            <input type="range" id="stageZoom" min="1" max="6" step="0.25" value="1">
+            <span id="stageZoomNote">100%</span>
+            <button id="stageZoomReset" title="回到整條剛好放進畫面">整條顯示</button>
+          </div>
+        </div>
+        <div class="menu" id="menu" hidden>
+          <button data-act="front">移到最上層</button>
+          <button data-act="up">上移一層</button>
+          <button data-act="down">下移一層</button>
+          <button data-act="back">移到最下層</button>
+          <hr>
+          <button data-act="lock">鎖定／解鎖</button>
+          <button data-act="hide">隱藏／顯示</button>
+          <button data-act="dup">複製</button>
+          <button data-act="remove">刪除</button>
+        </div>
+        <div class="offnote" id="offNote" hidden>
+          <span id="offNoteText"></span>
+          <button id="offBring">拉回畫布</button>
+          <button id="offExtend"></button>
+        </div>
+        <div class="stage-wrap" id="wrap">
+          <div class="stage-inner" id="stageInner">
+            <canvas id="stage"></canvas>
+            <canvas id="ui"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card previews">
+      <div class="row">
+        <div class="pv-phone">
+          <h2>模擬 IG 左右滑動</h2>
+          <div class="phone">
+            <div class="phone-top">your_account</div>
+            <div class="swipe" id="swipe"></div>
+            <div class="dots" id="dots"></div>
+          </div>
+        </div>
+        <div class="pv-side">
+          <div>
+            <h2>輸出的每一張</h2>
+            <div class="thumbs" id="thumbs"></div>
+          </div>
+          <div>
+            <h2>個人檔案九宮格縮圖</h2>
+            <div class="profile" id="profile"></div>
+            <p class="info">IG 的九宮格縮圖會從「第 1 張」的正中央裁成 3:4，兩側／上下超出的部分看不到。重點放中間比較安全。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+
+
+<script>
+(() => {
+  const SLIDE_W = 1080;
+  const SNAP_PX = 8;          // snap distance, CSS px
+  const HANDLE_PX = 11;       // handle size, CSS px
+  const ROT_HANDLE_PX = 28;   // rotate handle distance from the frame, CSS px
+  const MIN_SIZE = 20;        // strip px
+  const WORK_MAX = 2400;      // long side of the downscaled bitmap used while editing
+  const PROXY_MAX = 800;      // long side of the throwaway bitmap filtered while a slider is moving
+  const BRUSH_MIN_PX = 2;     // brush points closer than this (CSS px) are dropped
+  const MIN_STAGE_H = 180;    // never let the editing stage get flatter than this (CSS px)
+  const round1 = v => Math.round(v * 10) / 10;
+  const $ = id => document.getElementById(id);
+  const wrap = $('wrap'), view = $('stage'), vctx = view.getContext('2d');
+  const ui = $('ui'), uctx = ui.getContext('2d');
+  // Every scratch canvas in here is made the same way; 300x150 is the HTML default size.
+  const makeCanvas = (w = 300, h = 150) => {
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    return cv;
+  };
+
+  // Layers live in strip pixel coordinates (full export resolution); index 0 is the bottom.
+  // A layer is a frame (x, y, w, h, rotated `rot` degrees about its centre) with a photo
+  // cover-fitted inside it. `img === null` means an empty template slot.
+  const state = { layers: [], sel: -1, guides: [], crop: false, hover: -1 };
+  // Every decoded photo by imgId, so undo can bring back photos whose layers were deleted.
+  const photoRegistry = new Map();
+  // A project open in flight has photos that are decoded but not on the canvas yet, so nothing may
+  // collect them (a commit can land while a big project is still loading). Collection is suspended
+  // for the duration and the one it held back is run afterwards, never dropped.
+  let restoreDepth = 0, restorePending = false;
+
+  const slideCount = () => Math.min(20, Math.max(1, parseInt($('count').value, 10) || 1));
+  const stripW = () => SLIDE_W * slideCount();
+  const stripH = () => parseInt($('ratio').value, 10);
+  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+  const selected = () => state.layers[state.sel];
+  const cssToStrip = () => stripW() / (ui.clientWidth || 1); // strip px per CSS px
+
+  // ---------- fonts ----------
+  // Coverage = share of the 5,401 common Big5 Traditional Chinese characters the family contains.
+  // Every stack ends with the fallback so a missing character degrades instead of showing tofu.
+  const FALLBACK = '"Noto Sans TC", "Microsoft JhengHei", sans-serif';
+  const EMOJI_STACK = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+  const FONT_GROUPS = [['tc', '繁中完整'], ['art', '藝術字（部分罕用字缺字）'], ['en', '英文'], ['sys', '系統字型']];
+  const FONTS = [
+    { f: 'Noto Sans TC', n: '思源黑體', g: 'tc', c: 100, w: '400;700' },
+    { f: 'Noto Serif TC', n: '思源宋體（明體）', g: 'tc', c: 100, w: '400;700' },
+    // `w` lists the weights Google actually serves for the family (checked against the css2
+    // endpoint); families without a 700 face fall back to the browser's synthetic bold.
+    { f: 'LXGW WenKai TC', n: '霞鶩文楷（楷書）', g: 'tc', c: 100, w: '400;700' },
+    { f: 'Chiron GoRound TC', n: '昭源圓體', g: 'tc', c: 100, w: '400;700' },
+    { f: 'Chiron Hei HK', n: '昭源黑體', g: 'tc', c: 100, w: '400;700' },
+    { f: 'Chiron Sung HK', n: '昭源宋體', g: 'tc', c: 100, w: '400;700' },
+    { f: 'Cactus Classical Serif', n: '仙人掌明體（復古）', g: 'tc', c: 100 },
+    { f: 'Chocolate Classical Sans', n: '朱古力黑體（復古）', g: 'tc', c: 100 },
+    { f: 'Bpmf Zihi Kai Std', n: '注音楷體', g: 'tc', c: 100 },
+    { f: 'Huninn', n: '粉圓（圓體）', g: 'tc', c: 99.1 },
+    { f: 'Iansui', n: '芫荽（手寫）', g: 'tc', c: 99.1 },
+    { f: 'Mochiy Pop One', n: '可愛 POP', g: 'tc', c: 97.7 },
+    { f: 'Dela Gothic One', n: '超粗黑（海報）', g: 'art', c: 88 },
+    { f: 'Klee One', n: '硬筆', g: 'art', c: 88 },
+    { f: 'Cubic 11', n: '俐方體 11（點陣）', g: 'art', c: 88, url: 'https://cdn.jsdelivr.net/gh/ACh-K/Cubic-11@main/fonts/web/Cubic_11.woff2' },
+    { f: 'Rampart One', n: '立體空心', g: 'art', c: 83 },
+    { f: 'Reggae One', n: '雷鬼粗黑', g: 'art', c: 83 },
+    { f: 'RocknRoll One', n: '搖滾黑體', g: 'art', c: 83 },
+    { f: 'Potta One', n: '毛筆 POP', g: 'art', c: 83 },
+    { f: 'Yusei Magic', n: '麥克筆', g: 'art', c: 83 },
+    { f: 'Yuji Syuku', n: '書法（肅）', g: 'art', c: 83 },
+    { f: 'Yuji Mai', n: '書法（舞）', g: 'art', c: 83 },
+    { f: 'Yuji Boku', n: '書法（墨）', g: 'art', c: 83 },
+    { f: 'Kaisei Decol', n: '圓潤明體', g: 'art', c: 83, w: '400;700' },
+    { f: 'Zen Antique', n: '復古明體', g: 'art', c: 83 },
+    { f: 'Zen Kurenaido', n: '手寫', g: 'art', c: 83 },
+    { f: 'Hachi Maru Pop', n: '少女手寫', g: 'art', c: 83 },
+    { f: 'Kiwi Maru', n: '圓角明體', g: 'art', c: 83 },
+    { f: 'DotGothic16', n: '點陣黑體', g: 'art', c: 83 },
+    { f: 'Stick', n: '細線體', g: 'art', c: 83 },
+    { f: 'Playfair Display', n: 'Playfair Display', g: 'en', w: '400;700' },
+    { f: 'Bebas Neue', n: 'Bebas Neue', g: 'en' },
+    { f: 'Pacifico', n: 'Pacifico', g: 'en' },
+    { f: 'Caveat', n: 'Caveat', g: 'en', w: '400;700' },
+    { f: 'Montserrat', n: 'Montserrat', g: 'en', w: '400;700' },
+    { f: 'Abril Fatface', n: 'Abril Fatface', g: 'en' },
+    { f: 'Dancing Script', n: 'Dancing Script', g: 'en', w: '400;700' },
+    { f: 'Space Grotesk', n: 'Space Grotesk', g: 'en', w: '400;700' },
+    { f: 'Microsoft JhengHei', n: '微軟正黑體', g: 'sys', c: 100, sys: true },
+    { f: 'DFKai-SB', n: '標楷體', g: 'sys', c: 100, sys: true },
+    { f: 'PMingLiU', n: '新細明體', g: 'sys', c: 100, sys: true },
+    { f: 'system-ui', n: '系統預設', g: 'sys', c: 100, sys: true },
+    { f: 'emoji', n: '表情符號', g: 'sys', sys: true },
+  ];
+  const FONT_BY = new Map(FONTS.map(f => [f.f, f]));
+  const cssFam = f => (f === 'system-ui' ? f : `"${f}"`);
+  const fontStack = f => (f === 'emoji' ? EMOJI_STACK : `${cssFam(f)}, ${FALLBACK}`);
+
+  const fontState = new Map();   // family -> 'loading' | 'ready' | 'failed'
+  const fontReq = new Map();     // family -> Promise<boolean> for the stylesheet / FontFace
+  const fontSeen = new Map();    // family -> characters already asked for (Google serves CJK in subsets)
+
+  const FONT_TIMEOUT = 9000;   // a stalled network must never hang the editor or the export
+  const EXPORT_FONT_TIMEOUT = 15000;
+  // Resolves to `fallback` if `p` has not settled in `ms`.
+  const withTimeout = (p, ms, fallback) => Promise.race([
+    Promise.resolve(p).catch(() => fallback),
+    new Promise(res => setTimeout(() => res(fallback), ms)),
+  ]);
+
+  function loadFontFile(d) {
+    if (fontReq.has(d.f)) return fontReq.get(d.f);
+    // Both paths are capped the same way: a stalled network fails instead of hanging.
+    const p = withTimeout(new Promise(res => {
+      if (d.url) {
+        new FontFace(d.f, `url(${d.url})`).load()
+          .then(face => { document.fonts.add(face); res(true); }).catch(() => res(false));
+        return;
+      }
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?family=${d.f.replace(/ /g, '+')}` +
+        (d.w ? `:wght@${d.w}` : '') + '&display=swap';
+      link.onload = () => res(true);
+      link.onerror = () => res(false);
+      document.head.appendChild(link);
+    }), FONT_TIMEOUT, false);
+    fontReq.set(d.f, p);
+    return p;
+  }
+
+  // Loads a web font and the subsets covering `text`. Resolves false when offline / unavailable.
+  async function ensureFont(fam, text = '') {
+    const d = FONT_BY.get(fam);
+    if (!d || d.sys || fam === 'emoji') { fontState.set(fam, 'ready'); return true; }
+    const want = [...new Set(('A字' + text).split(''))].sort().join('');
+    if (fontState.get(fam) === 'ready' && fontSeen.get(fam) === want) return true;
+    if (fontState.get(fam) !== 'ready') fontState.set(fam, 'loading');
+    const ok = await loadFontFile(d);
+    if (!ok) { fontState.set(fam, 'failed'); return false; }
+    // Canvas never triggers a web-font download itself, so both weights the editor can ask for
+    // have to be fetched here or bold text would silently render in the fallback face.
+    let ctrl = [];
+    for (const w of ['400', '700']) {
+      try {
+        const got = await withTimeout(document.fonts.load(`${w} 40px ${cssFam(fam)}`, 'A字'), FONT_TIMEOUT, []);
+        if (w === '400') ctrl = got;
+        if (want) await withTimeout(document.fonts.load(`${w} 40px ${cssFam(fam)}`, want), FONT_TIMEOUT, []);
+      } catch { /* family or subset unavailable */ }
+    }
+    fontSeen.set(fam, want);
+    fontState.set(fam, ctrl.length ? 'ready' : 'failed');
+    // Only this family's coverage can have changed; other families keep their probes.
+    covCache.delete(fam);
+    probeCache.delete(fam);
+    fontEpoch++; // text already measured with this family has to be measured again
+    return ctrl.length > 0;
+  }
+
+  // Every font used by a text layer, with the characters it needs.
+  function usedFonts() {
+    const jobs = new Map();
+    for (const l of state.layers) {
+      if (l.kind !== 'text' || l.font === 'emoji') continue;
+      jobs.set(l.font, (jobs.get(l.font) || '') + l.text);
+    }
+    return jobs;
+  }
+  // Awaited before export so the output never silently falls back to a system font.
+  // Capped as a whole as well: a font that never settles must not leave the export button stuck.
+  const fontsForExport = () =>
+    withTimeout(Promise.all([...usedFonts()].map(([f, t]) => ensureFont(f, t))), EXPORT_FONT_TIMEOUT, null);
+  function loadUsedFonts() {
+    for (const [f, t] of usedFonts()) {
+      ensureFont(f, t).then(() => { markFontLabel(f); syncProps(); render(); });
+    }
+  }
+
+  // ---------- glyph coverage probe ----------
+  // Render one character with the family and with the browser default alone; identical pixels mean
+  // the family had no glyph and the default was used.
+  const NOFONT = '__ezp_nofont__';
+  const covCache = new Map();    // family -> Map(grapheme -> true when the family has no glyph)
+  const probeCache = new Map();  // family -> whether this family can be probed at all
+  // Bumped whenever a web font resolves: everything measured before that is stale.
+  let fontEpoch = 0;
+  try { document.fonts.addEventListener('loadingdone', () => { fontEpoch++; }); } catch { /* no FontFaceSet events */ }
+  let probeCtx = null;
+  function glyphHash(font, ch) {
+    if (!probeCtx) probeCtx = makeCanvas(48, 48).getContext('2d', { willReadFrequently: true });
+    const c = probeCtx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, 48, 48);
+    c.font = font;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = '#000';
+    c.fillText(ch, 24, 24);
+    const d = c.getImageData(0, 0, 48, 48).data;
+    let h = 2166136261;
+    for (let i = 3; i < d.length; i += 4) { h ^= d[i]; h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  const differs = (fam, ch) => glyphHash(`34px ${NOFONT}`, ch) !== glyphHash(`34px ${cssFam(fam)}, ${NOFONT}`, ch);
+  // A family that renders exactly like the browser default cannot be probed (most system fonts).
+  function probeable(fam) {
+    if (!probeCache.has(fam)) probeCache.set(fam, ['字', 'A', '永', '國'].some(ch => differs(fam, ch)));
+    return probeCache.get(fam);
+  }
+  // Emoji, ZWJ sequences and variation selectors are drawn by the colour emoji font whatever the
+  // family is, and a multi-code-point grapheme cannot be probed one character at a time, so none of
+  // them count as missing.
+  const UNPROBEABLE = /\p{Extended_Pictographic}|\p{M}|[‍︎️⃣]/u;
+  function missingChars(fam, text) {
+    if (fam === 'emoji' || !text || !probeable(fam)) return [];
+    let seen = covCache.get(fam);
+    if (!seen) covCache.set(fam, seen = new Map());
+    const out = [];
+    for (const g of new Set(graphemes(String(text)))) {
+      if (/\s/.test(g) || [...g].length > 1 || UNPROBEABLE.test(g)) continue;
+      if (!seen.has(g)) seen.set(g, !differs(fam, g));
+      if (seen.get(g)) out.push(g);
+    }
+    return out;
+  }
+  window.__missingChars = missingChars; // used by the test suite
+
+  // ---------- text layout ----------
+  const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('zh', { granularity: 'grapheme' }) : null;
+  const graphemes = s => (segmenter ? [...segmenter.segment(s)].map(x => x.segment) : [...s]);
+  // Characters that are drawn rotated in vertical text so they read correctly.
+  const VROT = new Set('ー（）〔〕［］｛｝〈〉《》「」『』【】〖〗～〜…‥—－‐()[]{}<>~—'.split(''));
+  let measCtx = null;
+  function textCtx() {
+    if (!measCtx) measCtx = makeCanvas().getContext('2d');
+    return measCtx;
+  }
+  function setTextFont(c, l) {
+    c.font = `${l.italic ? 'italic ' : ''}${l.bold ? '700' : '400'} ${l.fontSize}px ${fontStack(l.font)}`;
+  }
+  // Text box in layer-local units: lines, per-character advances, per-line widths and the line
+  // pitch. Measuring every character is the dominant per-keystroke cost and the result only depends
+  // on the inputs below, so it is memoised on the layer. `fontEpoch` is part of the key: when a web
+  // font finishes loading the same text measures differently and the cache must miss.
+  const measKey = l => `${fontEpoch}|${l.font}|${l.fontSize}|${l.letterSpacing}|${l.lineHeight}|` +
+    `${l.bold ? 1 : 0}${l.italic ? 1 : 0}${l.vertical ? 1 : 0}|${l.text}`;
+  function measureText(l) {
+    const key = measKey(l);
+    if (l.measKey === key) return l.meas;
+    const c = textCtx();
+    setTextFont(c, l);
+    const lines = String(l.text ?? '').split('\n').map(graphemes);
+    const fs = l.fontSize, ls = l.letterSpacing, lh = fs * l.lineHeight;
+    let m;
+    if (l.vertical) {
+      const heights = lines.map(g => (g.length ? g.length * fs + (g.length - 1) * ls : 0));
+      m = { lines, heights, lh, w: Math.max(lh, lines.length * lh), h: Math.max(fs, ...heights) };
+    } else {
+      const adv = lines.map(g => g.map(ch => c.measureText(ch).width));
+      const widths = adv.map(a => (a.length ? a.reduce((s, w) => s + w + ls, -ls) : 0));
+      m = { lines, adv, widths, lh, w: Math.max(fs * 0.4, ...widths), h: Math.max(lh, lines.length * lh) };
+    }
+    l.measKey = key; l.meas = m;
+    return m;
+  }
+  const textBoxSize = l => {
+    const m = measureText(l), pad = (l.textBgOn ? l.textBgPad : 0) + l.strokeWidth / 2;
+    return { w: Math.max(MIN_SIZE, m.w + pad * 2), h: Math.max(MIN_SIZE, m.h + pad * 2) };
+  };
+  // Which corner of the frame stays put when the text box is re-fitted, in frame-local units of
+  // half the width/height: left-aligned text keeps its left edge, right-aligned its right edge,
+  // centred text its centre, and vertical text its top-right corner (where its first column is).
+  const textAnchor = l => (l.vertical ? { ax: 1, ay: -1 }
+    : l.align === 'left' ? { ax: -1, ay: 0 }
+    : l.align === 'right' ? { ax: 1, ay: 0 } : { ax: 0, ay: 0 });
+  // Re-fit the frame around the text, keeping that anchor where it is on screen (rotation included).
+  function autoSizeText(l) {
+    const { ax, ay } = textAnchor(l);
+    const c = centre(l), o = rotate(ax * l.w / 2, ay * l.h / 2, l.rot);
+    const keep = { x: c.x + o.x, y: c.y + o.y };
+    const s = textBoxSize(l);
+    l.w = s.w; l.h = s.h;
+    const n = rotate(ax * l.w / 2, ay * l.h / 2, l.rot);
+    l.x = keep.x - n.x - l.w / 2;
+    l.y = keep.y - n.y - l.h / 2;
+  }
+
+  function drawText(c, l) {
+    const m = measureText(l), fs = l.fontSize, ls = l.letterSpacing, lh = m.lh;
+    setTextFont(c, l);
+    c.textBaseline = 'middle';
+    c.textAlign = 'left';
+    if (l.textBgOn) { c.fillStyle = l.textBg; c.fillRect(-l.w / 2, -l.h / 2, l.w, l.h); }
+    const paint = (ch, x, y) => {
+      if (l.strokeWidth > 0) {
+        c.lineWidth = l.strokeWidth; c.strokeStyle = l.strokeColor;
+        c.lineJoin = 'round'; c.miterLimit = 2;
+        c.strokeText(ch, x, y);
+      }
+      c.fillStyle = l.color;
+      c.fillText(ch, x, y);
+    };
+    if (l.vertical) {
+      // Columns run right to left; characters run top to bottom inside each column.
+      c.textAlign = 'center';
+      const right = m.w / 2;
+      m.lines.forEach((g, j) => {
+        const cx = right - (j + 0.5) * lh, colH = m.heights[j];
+        let y = l.align === 'left' ? -m.h / 2 : l.align === 'right' ? m.h / 2 - colH : -colH / 2;
+        for (const ch of g) {
+          if (VROT.has(ch)) {
+            c.save(); c.translate(cx, y + fs / 2); c.rotate(Math.PI / 2);
+            paint(ch, 0, 0);
+            c.restore();
+          } else {
+            paint(ch, cx, y + fs / 2);
+          }
+          y += fs + ls;
+        }
+      });
+      return;
+    }
+    const top = -m.h / 2;
+    m.lines.forEach((g, i) => {
+      const lw = m.widths[i], adv = m.adv[i];
+      let x = l.align === 'center' ? -lw / 2 : l.align === 'right' ? m.w / 2 - lw : -m.w / 2;
+      const y = top + i * lh + lh / 2;
+      g.forEach((ch, j) => {
+        paint(ch, x, y);
+        x += adv[j] + ls; // the advances measureText already took: never measure twice
+      });
+    });
+  }
+
+  // ---------- photo adjustments ----------
+  const ADJ_DEFAULT = { bright: 100, contrast: 100, satur: 100, warmth: 0, fade: 0, blurPx: 0 };
+  const hasFilter = l => l.bright !== 100 || l.contrast !== 100 || l.satur !== 100 || l.fade !== 0 || l.blurPx > 0;
+  const filterCss = l => `brightness(${l.bright}%) contrast(${l.contrast}%) saturate(${l.satur}%) grayscale(${l.fade}%)`;
+  // One cached result per owner (a layer, or the background), so scrubbing a slider replaces the
+  // entry instead of piling up canvases. A WeakMap means deleted layers drop out on their own.
+  const filterCache = new WeakMap();
+  const BG_SLOT = {};
+  const MAX_FILTER_W = 8192; // stay well inside the browser's canvas limits
+
+  // While a filter slider is being dragged, filtering a 16 MP photo on every tick blocks the main
+  // thread for ~70-150 ms. During the drag a small proxy is filtered instead and the real,
+  // work-resolution result is built once, when the slider settles.
+  let scrubbing = false, scrubTimer = null;
+  function beginScrub() {
+    scrubbing = true;
+    clearTimeout(scrubTimer);
+    scrubTimer = setTimeout(endScrub, 260);
+  }
+  function endScrub() {
+    clearTimeout(scrubTimer);
+    scrubTimer = null;
+    if (!scrubbing) return;
+    scrubbing = false;
+    render();
+  }
+  function scrubbable(...ids) {
+    for (const id of ids) {
+      if (!id || !$(id)) continue;
+      $(id).addEventListener('input', beginScrub);
+      $(id).addEventListener('change', endScrub);
+    }
+  }
+  // A ≤800px copy of a photo, built once and kept with it.
+  function proxyOf(photo) {
+    if (!photo) return null;
+    if (photo.prx !== undefined) return photo.prx;
+    const src = photo.bmp || photo.img;
+    const natW = src && (src.naturalWidth || src.width), natH = src && (src.naturalHeight || src.height);
+    if (!natW || !natH) return null;
+    const k = Math.min(1, PROXY_MAX / Math.max(natW, natH));
+    if (k >= 1) { photo.prx = null; return null; } // already small enough to filter every tick
+    const cv = makeCanvas(Math.max(1, Math.round(natW * k)), Math.max(1, Math.round(natH * k)));
+    cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+    photo.prx = cv;
+    return cv;
+  }
+
+  // Renders `src` through a CSS filter once. `blurStrip` is in strip pixels and is converted to the
+  // source's own scale, so the editor view and the full-resolution export blur by the same amount.
+  // The source is edge-extended first so the blur does not fade into transparency at the border.
+  function buildFiltered(src, natW, natH, drawW, css, blurStrip, slot, key) {
+    if (slot) {
+      const hit = filterCache.get(slot);
+      if (hit && hit.key === key) return hit.res;
+    }
+    const blurred = blurStrip > 0;
+    const tw = blurred ? Math.min(natW, Math.max(600, Math.min(3000, Math.ceil(drawW * 1.5))))
+      : Math.min(natW, MAX_FILTER_W);
+    const th = Math.max(1, Math.round(tw * natH / natW));
+    const bs = blurred ? blurStrip * tw / Math.max(1, drawW) : 0;
+    const m = Math.ceil(bs * 2);
+    if (m === 0) {
+      // No blur: filter the source straight into one canvas (no edge padding needed).
+      const only = makeCanvas(tw, th);
+      const c = only.getContext('2d');
+      c.imageSmoothingQuality = 'high';
+      c.filter = css && css !== 'none' ? css : 'none';
+      c.drawImage(src, 0, 0, natW, natH, 0, 0, tw, th);
+      const r = { cv: only, sx: 0, sy: 0, sw: tw, sh: th };
+      if (slot) filterCache.set(slot, { key, res: r });
+      return r;
+    }
+    const ext = makeCanvas(tw + m * 2, th + m * 2);
+    const ec = ext.getContext('2d');
+    ec.imageSmoothingQuality = 'high';
+    if (m > 0) {
+      ec.drawImage(src, 0, 0, natW, 1, m, 0, tw, m);
+      ec.drawImage(src, 0, natH - 1, natW, 1, m, m + th, tw, m);
+      ec.drawImage(src, 0, 0, 1, natH, 0, m, m, th);
+      ec.drawImage(src, natW - 1, 0, 1, natH, m + tw, m, m, th);
+      ec.drawImage(src, 0, 0, 1, 1, 0, 0, m, m);
+      ec.drawImage(src, natW - 1, 0, 1, 1, m + tw, 0, m, m);
+      ec.drawImage(src, 0, natH - 1, 1, 1, 0, m + th, m, m);
+      ec.drawImage(src, natW - 1, natH - 1, 1, 1, m + tw, m + th, m, m);
+    }
+    ec.drawImage(src, 0, 0, natW, natH, m, m, tw, th);
+    const out = makeCanvas(ext.width, ext.height);
+    const oc = out.getContext('2d');
+    const parts = [css, bs > 0 ? `blur(${bs}px)` : ''].filter(x => x && x !== 'none');
+    oc.filter = parts.join(' ') || 'none';
+    oc.drawImage(ext, 0, 0);
+    const res = { cv: out, sx: m, sy: m, sw: tw, sh: th };
+    if (slot) filterCache.set(slot, { key, res });
+    return res;
+  }
+
+  // ---------- geometry ----------
+  const rad = d => d * Math.PI / 180;
+  const rotate = (x, y, deg) => {
+    const c = Math.cos(rad(deg)), s = Math.sin(rad(deg));
+    return { x: x * c - y * s, y: x * s + y * c };
+  };
+  const centre = l => ({ x: l.x + l.w / 2, y: l.y + l.h / 2 });
+  const toLocal = (l, p) => { const c = centre(l); return rotate(p.x - c.x, p.y - c.y, -l.rot); };
+  const inside = (l, p) => { const v = toLocal(l, p); return Math.abs(v.x) <= l.w / 2 && Math.abs(v.y) <= l.h / 2; };
+  function halfBox(l) {
+    const c = Math.abs(Math.cos(rad(l.rot))), s = Math.abs(Math.sin(rad(l.rot)));
+    return { hw: (l.w * c + l.h * s) / 2, hh: (l.w * s + l.h * c) / 2 };
+  }
+  const isUpright = l => ((l.rot % 360) + 360) % 360 === 0;
+  const isBlock = l => l.kind === 'block';
+  const isPhoto = l => l.kind === 'photo';
+  const isSlot = l => isPhoto(l) && !l.img; // empty photo frame waiting for a photo
+  // Locked and hidden layers can still be picked from the layer list, but nothing on the canvas
+  // and no keyboard shortcut may move, resize, crop or delete them.
+  const editable = l => !!l && !l.locked && !l.hidden;
+  const hasShadow = l => l.shadowBlur > 0 || l.shadowX !== 0 || l.shadowY !== 0;
+
+  // Photo placement inside the frame, frame-local coordinates (origin at the frame centre).
+  function photoRect(l) {
+    const iw = l.img.naturalWidth, ih = l.img.naturalHeight;
+    const s = Math.max(l.w / iw, l.h / ih) * l.zoom;
+    const dw = iw * s, dh = ih * s;
+    return { s, dw, dh, x: -dw / 2 - l.px * (dw - l.w) / 2, y: -dh / 2 - l.py * (dh - l.h) / 2 };
+  }
+
+  const OPEN_SHAPES = new Set(['line', 'arrow']);   // stroked, not filled
+  const isOpen = l => OPEN_SHAPES.has(l.shape);
+
+  // Adds the layer's outline to the current path, centred on the origin. Does not call beginPath.
+  function shapeOutline(c, w, h, l) {
+    const hw = Math.max(w / 2, 0), hh = Math.max(h / 2, 0);
+    switch (l.shape) {
+      case 'ellipse': case 'circle':
+        c.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2); return;
+      case 'rounded':
+        c.roundRect(-hw, -hh, w, h, Math.max(0, Math.min(w, h) / 2 * l.radius / 100)); return;
+      case 'triangle':
+        c.moveTo(0, -hh); c.lineTo(hw, hh); c.lineTo(-hw, hh); c.closePath(); return;
+      case 'star': {
+        for (let i = 0; i < 10; i++) {
+          const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.42 : 1;
+          const x = Math.cos(a) * hw * r, y = Math.sin(a) * hh * r;
+          i ? c.lineTo(x, y) : c.moveTo(x, y);
+        }
+        c.closePath(); return;
+      }
+      case 'heart': {
+        // Parametric heart, scaled into the frame.
+        const N = 72;
+        for (let i = 0; i <= N; i++) {
+          const t = i / N * Math.PI * 2;
+          const x = 16 * Math.sin(t) ** 3;
+          const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+          const px = x / 16 * hw, py = y / 17 * hh;
+          i ? c.lineTo(px, py) : c.moveTo(px, py);
+        }
+        c.closePath(); return;
+      }
+      case 'bubble': {
+        const r = Math.min(w, h) * 0.18, bh = h * 0.78, by = -hh + bh;
+        c.roundRect(-hw, -hh, w, bh, r);
+        c.moveTo(-hw + w * 0.24, by - 1);
+        c.lineTo(-hw + w * 0.18, hh);
+        c.lineTo(-hw + w * 0.46, by - 1);
+        c.closePath(); return;
+      }
+      case 'line':
+        c.moveTo(-hw, 0); c.lineTo(hw, 0); return;
+      case 'arrow': {
+        const head = Math.min(hw * 0.9, Math.max(h * 0.5, l.lineW * 2.4));
+        c.moveTo(-hw, 0); c.lineTo(hw - head * 0.6, 0);
+        c.moveTo(hw - head, -head * 0.6); c.lineTo(hw, 0); c.lineTo(hw - head, head * 0.6);
+        return;
+      }
+      default:
+        c.rect(-hw, -hh, w, h);
+    }
+  }
+  function shapePath(c, w, h, l) {
+    c.beginPath();
+    shapeOutline(c, w, h, l);
+  }
+
+  // ---------- scene drawing (shared by the editor view and the full-resolution export) ----------
+  // Canvas shadow blur and offset are in device pixels and are NOT scaled by the current transform,
+  // so they have to be multiplied by it by hand — otherwise the editor view (drawn at `viewScale`)
+  // and the full-resolution export would show different shadows.
+  function applyShadow(c, l, s) {
+    c.shadowColor = l.shadowColor;
+    c.shadowBlur = l.shadowBlur * s;
+    c.shadowOffsetX = l.shadowX * s;
+    c.shadowOffsetY = l.shadowY * s;
+  }
+  // Shadow for a filled shape: paint the silhouette but clip to the area outside it, so the shadow
+  // never shows through a semi-transparent layer (same behaviour as CSS box-shadow).
+  function shapeShadow(c, l, s) {
+    const big = stripW() + stripH();
+    c.save();
+    c.beginPath();
+    c.rect(-big, -big, big * 2, big * 2);
+    shapeOutline(c, l.w, l.h, l);
+    c.clip('evenodd');
+    applyShadow(c, l, s);
+    c.fillStyle = '#000';
+    shapePath(c, l.w, l.h, l);
+    c.fill();
+    c.restore();
+  }
+
+  // Lays a flat [x, y, x, y, ...] point list into the current path, optionally scaled. A single
+  // point gets a hairline segment so the round cap still paints it as a dot.
+  function strokePath(c, pts, sx = 1, sy = 1) {
+    c.beginPath();
+    for (let i = 0; i < pts.length; i += 2) {
+      const x = pts[i] * sx, y = pts[i + 1] * sy;
+      i ? c.lineTo(x, y) : c.moveTo(x, y);
+    }
+    if (pts.length === 2) c.lineTo(pts[0] * sx + 0.01, pts[1] * sy);
+  }
+
+  function drawStroke(c, l) {
+    const pts = l.pts;
+    if (!pts || pts.length < 2) return;
+    const sx = l.w / (l.baseW || l.w || 1), sy = l.h / (l.baseH || l.h || 1);
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    c.strokeStyle = l.color;
+    c.lineWidth = Math.max(0.5, l.lineW * Math.min(sx, sy));
+    strokePath(c, pts, sx, sy);
+    c.stroke();
+  }
+
+  // `k` = strip px per CSS px (for hairline UI sizes), `s` = device px per strip px (the CTM scale).
+  function drawLayer(c, l, full, k, s) {
+    if (l.hidden) return;
+    const ctr = centre(l);
+    c.save();
+    c.translate(ctr.x, ctr.y);
+    c.rotate(rad(l.rot));
+    c.globalAlpha = l.opacity / 100;
+    if (l.kind === 'text') {
+      if (hasShadow(l)) applyShadow(c, l, s);
+      drawText(c, l);
+      c.restore();
+      return;
+    }
+    if (l.kind === 'draw') {
+      if (hasShadow(l)) applyShadow(c, l, s);
+      drawStroke(c, l);
+      c.restore();
+      return;
+    }
+    if (isBlock(l)) {
+      if (isOpen(l)) {
+        if (hasShadow(l)) applyShadow(c, l, s);
+        c.lineCap = 'round';
+        c.lineJoin = 'round';
+        c.lineWidth = Math.max(0.5, l.lineW);
+        c.strokeStyle = l.fill;
+        shapePath(c, l.w, l.h, l);
+        c.stroke();
+        c.restore();
+        return;
+      }
+      if (hasShadow(l)) shapeShadow(c, l, s);
+      shapePath(c, l.w, l.h, l);
+      c.fillStyle = l.fill;
+      c.fill();
+    } else if (!l.img) {
+      // An empty slot is a hint, not content: it is drawn on the UI layer (see drawUI) so the
+      // previews show exactly what the export will contain.
+      c.restore();
+      return;
+    } else {
+      if (hasShadow(l)) shapeShadow(c, l, s);
+      c.save();
+      shapePath(c, l.w, l.h, l);
+      c.clip();
+      paintPhoto(c, l, full, { x: -l.w / 2, y: -l.h / 2, w: l.w, h: l.h });
+      c.restore();
+    }
+    if (l.border > 0) {
+      // Keep the border inside the shape so it never spills past the frame.
+      const b = Math.min(l.border, l.w / 2, l.h / 2);
+      shapePath(c, l.w - b, l.h - b, l);
+      c.lineWidth = b;
+      c.strokeStyle = l.borderColor;
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  // Which bitmap the photo is drawn from, plus a tag for the filter cache key: a result built from
+  // one source must never be reused for another, or the editor cache can hold on to a
+  // full-resolution canvas for the rest of the session.
+  function photoSource(l, full) {
+    if (full) return { src: l.img, tag: 'full' };
+    if (scrubbing && hasFilter(l)) {
+      const q = proxyOf(photoRegistry.get(l.imgId));
+      if (q) return { src: q, tag: 'proxy' };
+    }
+    return l.bmp ? { src: l.bmp, tag: 'work' } : { src: l.img, tag: 'orig' };
+  }
+  // Paints the photo of `l` where the frame puts it, with flip, filter and the warmth wash.
+  // `wash` is the rectangle the warmth covers (the frame when the caller clipped to it, the whole
+  // photo otherwise); `washAlpha` fades it for the faint crop-mode overlay.
+  function paintPhoto(c, l, full, wash, washAlpha = 1) {
+    const p = photoRect(l);
+    const { src, tag } = photoSource(l, full);
+    const natW = src.naturalWidth || src.width, natH = src.naturalHeight || src.height;
+    if (hasFilter(l)) {
+      // Cache the editor-resolution result; the export builds a one-off at full resolution.
+      const key = `${l.imgId}|${tag}|${filterCss(l)}|${l.blurPx}|${l.blurPx > 0 ? Math.round(p.dw / 48) : 0}`;
+      const f = buildFiltered(src, natW, natH, p.dw, filterCss(l), l.blurPx, full ? null : l, key);
+      drawPhoto(c, l, f.cv, p, f.sx, f.sy, f.sw, f.sh);
+    } else {
+      filterCache.delete(l); // no filter left: let the cached canvas go
+      drawPhoto(c, l, src, p, 0, 0, natW, natH);
+    }
+    if (l.warmth) {
+      const r = wash || { x: p.x, y: p.y, w: p.dw, h: p.dh };
+      c.save();
+      c.globalCompositeOperation = 'overlay';
+      c.globalAlpha = Math.abs(l.warmth) / 100 * 0.4 * (l.opacity / 100) * washAlpha;
+      c.fillStyle = l.warmth > 0 ? '#ff8a2b' : '#2b8aff';
+      c.fillRect(r.x, r.y, r.w, r.h);
+      c.restore();
+    }
+  }
+
+  function drawPhoto(c, l, src, p, sx, sy, sw, sh) {
+    if (!l.flipH && !l.flipV) { c.drawImage(src, sx, sy, sw, sh, p.x, p.y, p.dw, p.dh); return; }
+    c.save();
+    c.scale(l.flipH ? -1 : 1, l.flipV ? -1 : 1);
+    c.drawImage(src, sx, sy, sw, sh,
+      l.flipH ? -p.x - p.dw : p.x, l.flipV ? -p.y - p.dh : p.y, p.dw, p.dh);
+    c.restore();
+  }
+
+  function drawPlaceholder(c, l, k) {
+    shapePath(c, l.w, l.h, l);
+    c.fillStyle = 'rgba(128,128,140,.28)';
+    c.fill();
+    c.setLineDash([6 * k, 5 * k]);
+    c.lineWidth = 1.5 * k;
+    c.strokeStyle = 'rgba(90,90,110,.9)';
+    c.stroke();
+    c.setLineDash([]);
+    const fs = Math.min(15 * k, l.w / 8, l.h / 5);
+    c.fillStyle = 'rgba(60,60,75,.95)';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.font = `600 ${fs * 1.8}px system-ui, sans-serif`;
+    c.fillText('+', 0, -fs * 0.9);
+    c.font = `${fs}px system-ui, "Microsoft JhengHei", sans-serif`;
+    c.fillText('點擊或拖入照片', 0, fs * 0.9);
+  }
+
+  // Draws layers [from, to) — the background only when starting from the bottom.
+  // The background spans the whole strip so a gradient or a blurred photo flows across the seams.
+  function drawBackground(c, full) {
+    const W = stripW(), H = stripH(), type = $('bgType').value;
+    if (type === 'gradient') {
+      const a = rad(parseFloat($('bgAngle').value) || 0);
+      const len = (Math.abs(Math.cos(a)) * W + Math.abs(Math.sin(a)) * H) / 2;
+      const dx = Math.cos(a) * len, dy = Math.sin(a) * len;
+      const g = c.createLinearGradient(W / 2 - dx, H / 2 - dy, W / 2 + dx, H / 2 + dy);
+      g.addColorStop(0, $('bg').value);
+      g.addColorStop(1, $('bg2').value);
+      c.fillStyle = g;
+      c.fillRect(0, 0, W, H);
+      return;
+    }
+    const photo = type === 'photo' ? photoRegistry.get($('bgPhoto').value) : null;
+    c.fillStyle = $('bg').value;
+    c.fillRect(0, 0, W, H);
+    if (!photo?.img) return;
+    const blur = parseFloat($('bgBlur').value) || 0;
+    let src = full ? photo.img : (photo.bmp || photo.img);
+    let tag = full ? 'full' : (photo.bmp ? 'work' : 'orig');
+    if (!full && scrubbing && blur > 0) {
+      const q = proxyOf(photo);
+      if (q) { src = q; tag = 'proxy'; }
+    }
+    const natW = src.naturalWidth || src.width, natH = src.naturalHeight || src.height;
+    const s = Math.max(W / natW, H / natH), dw = natW * s, dh = natH * s;
+    const key = `${photo.imgId}|${tag}|${blur}|${Math.round(dw / 48)}`;
+    const f = blur > 0 ? buildFiltered(src, natW, natH, dw, 'none', blur, full ? null : BG_SLOT, key) : null;
+    if (f) c.drawImage(f.cv, f.sx, f.sy, f.sw, f.sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    else c.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    const dim = (parseFloat($('bgDim').value) || 0) / 100;
+    if (dim > 0) {
+      c.fillStyle = `rgba(0,0,0,${dim})`;
+      c.fillRect(0, 0, W, H);
+    }
+  }
+
+  function drawScene(c, scale, full, from = 0, to = state.layers.length) {
+    const W = stripW(), H = stripH();
+    c.setTransform(scale, 0, 0, scale, 0, 0);
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = 'high';
+    if (from === 0) drawBackground(c, full);
+    const k = full ? 1 : cssToStrip();
+    for (let i = from; i < to; i++) drawLayer(c, state.layers[i], full, k, scale);
+  }
+
+  // While one layer is being dragged, everything below and above it is frozen into two
+  // bitmaps so each frame redraws a single photo instead of the whole composition.
+  let dragCache = null;
+  function buildDragCache(l) {
+    const i = state.layers.indexOf(l);
+    if (i < 0) return;
+    const below = makeCanvas(view.width, view.height), above = makeCanvas(view.width, view.height);
+    drawScene(below.getContext('2d'), viewScale, false, 0, i);
+    drawScene(above.getContext('2d'), viewScale, false, i + 1);
+    dragCache = { l, below, above, w: view.width, h: view.height };
+  }
+  function drawFromCache() {
+    vctx.setTransform(1, 0, 0, 1, 0, 0);
+    vctx.drawImage(dragCache.below, 0, 0);
+    vctx.setTransform(viewScale, 0, 0, viewScale, 0, 0);
+    vctx.imageSmoothingQuality = 'high';
+    drawLayer(vctx, dragCache.l, false, cssToStrip(), viewScale);
+    vctx.setTransform(1, 0, 0, 1, 0, 0);
+    vctx.drawImage(dragCache.above, 0, 0);
+  }
+
+  // ---------- editor canvases (screen resolution only) ----------
+  // Many slides on a tall ratio make the whole strip far too flat to work on (20 × 9:16 is under
+  // 100 px high), so the stage can be blown up and the wrapper scrolled sideways instead. The
+  // zoom only changes how big the strip is drawn — nothing in strip coordinates moves.
+  let viewScale = 1;   // device px per strip px
+  let stageZoom = 1;   // what the user asked for; the floor below can push it higher
+  // Reading clientWidth forces a layout, and render() runs sizeCanvases() on every animation frame.
+  // The value can only change when the wrapper is resized or revealed, and both reset this.
+  let fitW = 0;
+  const wrapWidth = () => (fitW ||= wrap.clientWidth || 800);
+  function stageCssWidth() {
+    const W = stripW(), H = stripH();
+    const fit = wrapWidth();                        // width at which the whole strip is visible
+    const floor = MIN_STAGE_H / Math.max(1, fit * H / W); // zoom needed for a usable height
+    return fit * clamp(Math.max(stageZoom, Math.min(floor, 8)), 1, 8);
+  }
+  function sizeCanvases() {
+    const W = stripW(), H = stripH();
+    const cssW = stageCssWidth(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // A whole number of device pixels per slide keeps the preview tiles seam-exact.
+    const n = slideCount();
+    const per = Math.max(1, Math.round(cssW * dpr / n));
+    const pw = per * n, ph = Math.max(1, Math.round(pw * H / W));
+    for (const cv of [view, ui]) if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
+    $('stageInner').style.width = cssW + 'px';
+    view.style.height = (cssW * H / W) + 'px';
+    viewScale = pw / W;
+  }
+  function syncStageZoom() {
+    const shown = stageCssWidth() / wrapWidth();
+    $('stageZoomNote').textContent = Math.round(shown * 100) + '%' + (shown > stageZoom + 0.01 ? '（最小高度）' : '');
+  }
+  $('stageZoom').addEventListener('input', e => {
+    stageZoom = parseFloat(e.target.value) || 1;
+    render();
+    syncStageZoom();
+  });
+  $('stageZoomReset').addEventListener('click', () => {
+    stageZoom = 1;
+    $('stageZoom').value = '1';
+    render();
+    syncStageZoom();
+  });
+
+  let rafPending = false, sceneDirty = true, previewTimer = 0;
+  function schedulePreviews() { clearTimeout(previewTimer); previewTimer = setTimeout(drawPreviews, 120); }
+  // `sceneChanged=false` only redraws the selection/guide layer (hover, guides) — much cheaper.
+  function render(sceneChanged = true) {
+    if (sceneChanged) sceneDirty = true;
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => {
+      rafPending = false;
+      sizeCanvases();
+      if (sceneDirty) {
+        const cached = drag && dragCache && dragCache.l === drag.l && dragCache.w === view.width && dragCache.h === view.height;
+        if (cached) {
+          drawFromCache(); // previews/info/autosave wait until the gesture ends
+        } else {
+          drawScene(vctx, viewScale, false);
+          schedulePreviews(); // continuous slider input repaints the tiles once, after it settles
+          updateInfo();
+          scheduleAutosave();
+          scheduleCommit();
+        }
+        sceneDirty = false;
+      }
+      drawUI();
+    });
+  }
+
+  function drawUI() {
+    const W = stripW(), H = stripH(), n = slideCount(), k = cssToStrip();
+    const c = uctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, ui.width, ui.height);
+    c.setTransform(viewScale, 0, 0, viewScale, 0, 0);
+
+    // Seams and slide numbers.
+    c.setLineDash([4 * k, 4 * k]);
+    c.lineWidth = k;
+    c.strokeStyle = 'rgba(255,60,90,.85)';
+    for (let i = 1; i < n; i++) { c.beginPath(); c.moveTo(i * SLIDE_W, 0); c.lineTo(i * SLIDE_W, H); c.stroke(); }
+    c.setLineDash([]);
+    c.font = `600 ${12 * k}px system-ui, sans-serif`;
+    c.textBaseline = 'top';
+    c.textAlign = 'left';
+    for (let i = 0; i < n; i++) {
+      const t = String(i + 1).padStart(2, '0'), x = i * SLIDE_W + 8 * k, y = 8 * k;
+      c.fillStyle = 'rgba(0,0,0,.55)';
+      c.fillRect(x - 3 * k, y - 2 * k, c.measureText(t).width + 6 * k, 16 * k);
+      c.fillStyle = '#fff';
+      c.fillText(t, x, y);
+    }
+
+    // Empty photo slots. They belong to the editor, not to the picture: keeping them on the UI
+    // layer means the IG preview, the thumbnails and the profile grid all show exactly what the
+    // export will contain.
+    for (const l of state.layers) {
+      if (l.hidden || !isPhoto(l) || l.img) continue;
+      const ctr = centre(l);
+      c.save();
+      c.translate(ctr.x, ctr.y);
+      c.rotate(rad(l.rot));
+      c.globalAlpha = 1;
+      drawPlaceholder(c, l, k);
+      c.restore();
+    }
+
+    // Hover outline.
+    const hv = state.layers[state.hover];
+    if (hv && state.hover !== state.sel && !state.crop) {
+      framePath(c, hv);
+      c.lineWidth = 1.5 * k;
+      c.strokeStyle = 'rgba(79,140,255,.7)';
+      c.stroke();
+    }
+
+    // Snap guides.
+    c.lineWidth = 1.5 * k;
+    c.strokeStyle = '#ff2d95';
+    for (const g of state.guides) {
+      c.beginPath();
+      if (g.axis === 'x') { c.moveTo(g.at, 0); c.lineTo(g.at, H); } else { c.moveTo(0, g.at); c.lineTo(W, g.at); }
+      c.stroke();
+    }
+
+    // Brush stroke in progress.
+    if (stroke && stroke.pts.length >= 2) {
+      c.lineCap = 'round';
+      c.lineJoin = 'round';
+      c.strokeStyle = stroke.color;
+      c.lineWidth = stroke.width;
+      strokePath(c, stroke.pts); // unscaled: the points are already in strip coordinates
+      c.stroke();
+    }
+
+    const l = selected();
+    if (!l) return;
+    const ctr = centre(l);
+    c.save();
+    c.translate(ctr.x, ctr.y);
+    c.rotate(rad(l.rot));
+    if (!editable(l)) {
+      // Locked or hidden layers show where they are but offer no handles.
+      c.setLineDash([8 * k, 6 * k]);
+      c.lineWidth = 2 * k;
+      c.strokeStyle = '#9aa0b0';
+      c.strokeRect(-l.w / 2, -l.h / 2, l.w, l.h);
+      c.setLineDash([]);
+      c.restore();
+      return;
+    }
+    if (state.crop && l.img) {
+      // Whole photo, faint, so the cropped-away part stays visible while adjusting. It goes through
+      // the same painting path as the canvas (flip, filter, warmth) — otherwise you would be
+      // nudging a picture that does not match the one you get.
+      const p = photoRect(l);
+      c.globalAlpha = 0.4;
+      paintPhoto(c, l, false, null, 0.4);
+      c.globalAlpha = 1;
+      c.save();
+      shapePath(c, l.w, l.h, l);
+      c.clip();
+      paintPhoto(c, l, false, { x: -l.w / 2, y: -l.h / 2, w: l.w, h: l.h });
+      c.restore();
+      c.setLineDash([6 * k, 4 * k]);
+      c.lineWidth = k;
+      c.strokeStyle = '#fff';
+      c.strokeRect(p.x, p.y, p.dw, p.dh);
+      c.setLineDash([]);
+      c.lineWidth = 2.5 * k;
+      c.strokeStyle = '#ffb020';
+      c.strokeRect(-l.w / 2, -l.h / 2, l.w, l.h);
+      c.restore();
+      return;
+    }
+    c.lineWidth = 2 * k;
+    c.strokeStyle = '#4f8cff';
+    c.strokeRect(-l.w / 2, -l.h / 2, l.w, l.h);
+    const ry = rotHandleY(l);
+    c.beginPath(); c.moveTo(0, ry > 0 ? -l.h / 2 : -l.h / 2); c.lineTo(0, ry); c.lineWidth = 1.5 * k; c.stroke();
+    const hs = HANDLE_PX * k;
+    c.fillStyle = '#fff';
+    c.lineWidth = 1.5 * k;
+    c.beginPath(); c.arc(0, ry, hs * 0.6, 0, Math.PI * 2); c.fill(); c.stroke();
+    for (const [sx, sy] of handleList(l)) {
+      const hx = sx * l.w / 2, hy = sy * l.h / 2;
+      c.beginPath();
+      if (sx === 0 || sy === 0) c.roundRect(hx - hs / 2, hy - hs / 2, hs, hs, hs / 2);
+      else c.rect(hx - hs / 2, hy - hs / 2, hs, hs);
+      c.fill(); c.stroke();
+    }
+    c.restore();
+  }
+
+  function framePath(c, l) {
+    const ctr = centre(l), a = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => rotate(sx * l.w / 2, sy * l.h / 2, l.rot));
+    c.beginPath();
+    a.forEach((p, i) => (i ? c.lineTo : c.moveTo).call(c, ctr.x + p.x, ctr.y + p.y));
+    c.closePath();
+  }
+
+  const handleList = l => {
+    const h = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+    // Text scales through the corners only (they drive the font size); sides would distort it.
+    if (l.shape !== 'circle' && l.kind !== 'text') h.push([0, -1], [0, 1], [-1, 0], [1, 0]);
+    return h;
+  };
+  // Rotate handle sits above the frame; if that would fall outside the strip, it goes just inside.
+  function rotHandleY(l) {
+    const k = cssToStrip();
+    let y = -l.h / 2 - ROT_HANDLE_PX * k;
+    const wy = centre(l).y + rotate(0, y, l.rot).y;
+    if (wy < 0 || wy > stripH()) y = -l.h / 2 + ROT_HANDLE_PX * k;
+    return y;
+  }
+
+  // ---------- IG preview: copies pixels from the editor view, no image encoding ----------
+  // The tiles only depend on the slide count, the ratio, how wide the stage is drawn and whether
+  // the editor is on screen at all, so the key carries exactly those: nothing else can invalidate
+  // them and no caller has to remember to reset it by hand.
+  let previewKey = '';
+  function buildPreviews() {
+    const n = slideCount(), H = stripH();
+    const key = `${n}x${H}x${view.width}x${$('editor').hidden ? 1 : 0}`;
+    if (key === previewKey) return;
+    previewKey = key;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const mk = w => makeCanvas(w, Math.round(w * H / SLIDE_W));
+    $('swipe').innerHTML = '';
+    $('thumbs').innerHTML = '';
+    $('dots').innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      $('swipe').appendChild(mk(Math.round(320 * dpr)));
+      const fig = document.createElement('figure');
+      fig.appendChild(mk(Math.round(160 * dpr)));
+      const cap = document.createElement('figcaption');
+      cap.textContent = String(i + 1).padStart(2, '0');
+      fig.appendChild(cap);
+      $('thumbs').appendChild(fig);
+      $('dots').appendChild(document.createElement('i'));
+    }
+    if (!$('profile').children.length) {
+      const dp = Math.min(window.devicePixelRatio || 1, 2);
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        if (i === 0) {
+          const cv = makeCanvas(Math.round(106 * dp), Math.round(106 * dp * 4 / 3));
+          cv.id = 'gridTile';
+          cell.appendChild(cv);
+        }
+        $('profile').appendChild(cell);
+      }
+    }
+    syncDots();
+  }
+  // Copying a fractional source rectangle out of the strip lets the scaler reach past the seam and
+  // smear a sliver of the next slide into this tile. Each slide is lifted out 1:1 into a scratch
+  // canvas first (no filtering, nothing outside it to sample) and only then scaled down.
+  let tileScratch = null;
+  const slideEdge = i => Math.round(i * view.width / Math.max(1, slideCount()));
+  // The IG simulator and the profile grid sit below the editor; repainting them on every frame
+  // while they are scrolled out of sight is pure waste. Scrolling one back in repaints immediately.
+  let previewsShown = true, previewsStale = false;
+  function drawPreviews() {
+    if ($('editor').hidden) return;
+    if (!previewsShown) { previewsStale = true; return; }
+    previewsStale = false;
+    buildPreviews();
+    const n = slideCount(), sh = view.height;
+    const swipe = [...$('swipe').children], thumbs = [...$('thumbs').querySelectorAll('canvas')];
+    tileScratch ||= makeCanvas();
+    const tc = tileScratch.getContext('2d');
+    for (let i = 0; i < n; i++) {
+      const x0 = slideEdge(i), sw = Math.max(1, slideEdge(i + 1) - x0);
+      if (tileScratch.width !== sw || tileScratch.height !== sh) { tileScratch.width = sw; tileScratch.height = sh; }
+      tc.clearRect(0, 0, sw, sh);
+      tc.drawImage(view, x0, 0, sw, sh, 0, 0, sw, sh);
+      for (const cv of [swipe[i], thumbs[i]]) {
+        if (!cv) continue;
+        const c = cv.getContext('2d');
+        c.imageSmoothingQuality = 'high';
+        c.clearRect(0, 0, cv.width, cv.height);
+        c.drawImage(tileScratch, 0, 0, cv.width, cv.height);
+      }
+    }
+    drawGridTile();
+  }
+  // Profile grid thumbnail: Instagram crops slide 1 to 3:4 from the centre.
+  function drawGridTile() {
+    const cv = $('gridTile');
+    if (!cv) return;
+    const H = stripH();
+    const wide = SLIDE_W / H > 3 / 4;
+    const cw = wide ? H * 3 / 4 : SLIDE_W, ch = wide ? H : SLIDE_W * 4 / 3;
+    const c = cv.getContext('2d');
+    c.imageSmoothingQuality = 'high';
+    c.clearRect(0, 0, cv.width, cv.height);
+    // Integer source rect, clamped to slide 1, so the tile cannot pick up slide 2 across the seam.
+    const edge = slideEdge(1);
+    const sx = clamp(Math.round((SLIDE_W - cw) / 2 * viewScale), 0, edge);
+    const sw = clamp(Math.round(cw * viewScale), 1, edge - sx);
+    const sy = Math.max(0, Math.round((H - ch) / 2 * viewScale));
+    const sh = clamp(Math.round(ch * viewScale), 1, view.height - sy);
+    c.drawImage(view, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+  }
+  function syncDots() {
+    const el = $('swipe');
+    const idx = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+    [...$('dots').children].forEach((d, i) => d.classList.toggle('on', i === idx));
+  }
+  $('swipe').addEventListener('scroll', syncDots);
+  const onScreen = new Set();
+  const previewGate = new IntersectionObserver(entries => {
+    for (const e of entries) e.isIntersecting ? onScreen.add(e.target) : onScreen.delete(e.target);
+    previewsShown = onScreen.size > 0;
+    if (previewsShown && previewsStale) drawPreviews();
+  }, { rootMargin: '200px' });
+  previewGate.observe($('swipe').closest('.row'));
+  previewGate.observe($('profile'));
+
+  function updateInfo() {
+    const n = slideCount(), W = stripW(), H = stripH();
+    const blurry = state.layers.filter(l => l.img && photoRect(l).s > 1.05);
+    const empty = state.layers.filter(isSlot).length;
+    $('info').innerHTML = `輸出：${n} 張 × ${SLIDE_W}×${H}，整條 ${W}×${H}` +
+      (empty ? `<br><span class="warn">還有 ${empty} 個空白欄位（輸出時會是背景色）。</span>` : '') +
+      (blurry.length ? `<br><span class="warn">${blurry.map(l => l.name).join('、')} 被放大超過原始解析度，可能會糊。</span>` : '');
+    syncStageZoom();
+    syncOffNote();
+  }
+
+  // A layer whose whole bounding box lies outside the strip cannot be seen or clicked — typically
+  // after the slide count was reduced. Say so, and offer the two ways back.
+  function offCanvas(l) {
+    const c = centre(l), { hw, hh } = halfBox(l);
+    return c.x + hw <= 0 || c.x - hw >= stripW() || c.y + hh <= 0 || c.y - hh >= stripH();
+  }
+  const slidesNeeded = () => Math.min(20, Math.ceil(Math.max(...state.layers.map(l => centre(l).x + halfBox(l).hw)) / SLIDE_W));
+  function syncOffNote() {
+    const off = state.layers.filter(offCanvas);
+    $('offNote').hidden = !off.length;
+    if (!off.length) return;
+    $('offNoteText').textContent = `有 ${off.length} 個圖層在畫布範圍外，所以看不到也點不到（通常是張數被改少了）。`;
+    const need = slidesNeeded();
+    $('offExtend').hidden = need <= slideCount();
+    $('offExtend').textContent = `張數加到 ${need} 張`;
+  }
+  $('offBring').addEventListener('click', () => {
+    commit();
+    const W = stripW(), H = stripH();
+    for (const l of state.layers.filter(offCanvas)) {
+      const c = centre(l), { hw, hh } = halfBox(l);
+      const nx = hw * 2 >= W ? W / 2 : clamp(c.x, hw, W - hw), ny = hh * 2 >= H ? H / 2 : clamp(c.y, hh, H - hh);
+      l.x += nx - c.x; l.y += ny - c.y;
+    }
+    renderLayerList();
+    render();
+  });
+  $('offExtend').addEventListener('click', () => {
+    commit();
+    $('count').value = slidesNeeded();
+    renderLayerList();
+    render();
+  });
+
+  // ---------- side panel ----------
+  let listDrag = null;
+  function layerLabel(l) {
+    if (l.kind === 'text') {
+      const t = String(l.text || '').replace(/\n/g, ' ').trim();
+      return (l.font === 'emoji' ? '貼紙 ' : '文字 ') + (t.length > 14 ? t.slice(0, 14) + '…' : t || '（空白）');
+    }
+    if (l.kind === 'draw') return '筆畫';
+    if (l.img) {
+      // The same photo placed twice looks identical in the list, so number the copies (display only).
+      const twins = state.layers.filter(o => o.img && o.name === l.name);
+      return twins.length > 1 ? `${l.name} (${twins.indexOf(l) + 1})` : l.name;
+    }
+    return isBlock(l) ? '色塊' : '空白照片欄位';
+  }
+  function renderLayerList() {
+    const ul = $('layers');
+    ul.innerHTML = '';
+    for (let i = state.layers.length - 1; i >= 0; i--) {
+      const l = state.layers[i];
+      const li = document.createElement('li');
+      li.className = i === state.sel ? 'sel' : '';
+      li.draggable = true;
+      li.classList.toggle('off', !!l.hidden);
+      if (l.img) {
+        const im = document.createElement('img');
+        im.className = 'thumb'; im.src = l.url; im.draggable = false;
+        li.appendChild(im);
+      } else {
+        const d = document.createElement('div');
+        const solid = isBlock(l) || l.kind === 'draw' || l.kind === 'text';
+        d.className = solid ? 'thumb' : 'thumb empty';
+        if (isBlock(l)) { d.style.background = l.fill; d.style.border = '1px solid var(--line)'; }
+        if (l.kind === 'draw') { d.style.background = l.color; d.style.border = '1px solid var(--line)'; }
+        if (l.kind === 'text') { d.style.border = '1px solid var(--line)'; d.textContent = 'T'; d.style.textAlign = 'center'; d.style.lineHeight = '30px'; }
+        li.appendChild(d);
+      }
+      const sp = document.createElement('span');
+      sp.textContent = layerLabel(l) + (offCanvas(l) ? '（畫布外）' : '');
+      li.appendChild(sp);
+      for (const [key, on, off, prop] of [['locked', '🔒', '🔓', 'locked'], ['hidden', '🙈', '👁', 'hidden']]) {
+        const b = document.createElement('button');
+        b.className = 'tog' + (l[prop] ? ' on' : '');
+        b.textContent = l[prop] ? on : off;
+        b.title = prop === 'locked' ? '鎖定／解鎖' : '隱藏／顯示';
+        b.addEventListener('click', ev => {
+          ev.stopPropagation();
+          l[prop] = !l[prop];
+          if (state.crop && !editable(selected())) setCrop(false); // locking the layer ends its crop
+          renderLayerList();
+          render();
+        });
+        li.appendChild(b);
+      }
+      li.addEventListener('click', () => select(i));
+      li.addEventListener('dragstart', e => { listDrag = i; e.dataTransfer.effectAllowed = 'move'; });
+      li.addEventListener('dragover', e => {
+        if (listDrag === null) return;
+        e.preventDefault(); e.stopPropagation();
+        const after = e.offsetY > li.clientHeight / 2;
+        li.classList.toggle('drop-before', !after);
+        li.classList.toggle('drop-after', after);
+      });
+      li.addEventListener('dragleave', () => li.classList.remove('drop-before', 'drop-after'));
+      li.addEventListener('drop', e => {
+        if (listDrag === null) return;
+        e.preventDefault(); e.stopPropagation();
+        moveLayer(listDrag, li.classList.contains('drop-after') ? i : i + 1);
+        listDrag = null;
+        renderLayerList(); render();
+      });
+      li.addEventListener('dragend', () => { listDrag = null; renderLayerList(); });
+      ul.appendChild(li);
+    }
+    const has = state.layers.length > 0;
+    $('emptyState').hidden = has;
+    const wasHidden = $('editor').hidden;
+    $('editor').hidden = !has;
+    if (wasHidden && has) fitW = 0; // the wrapper had no width while the editor was hidden
+    $('export').disabled = !state.layers.some(l => l.img || l.kind === 'text' || l.kind === 'draw' || isBlock(l));
+    document.querySelectorAll('[data-act]').forEach(b => { b.disabled = !canRun(selected(), b.dataset.act); });
+    syncBgPhotoOptions();
+    syncProps();
+  }
+
+  const KIND_TITLE = { block: '選取的色塊', text: '選取的文字', draw: '選取的筆畫', photo: '選取的照片' };
+  function syncProps() {
+    const l = selected();
+    $('props').hidden = !l;
+    $('textProps').hidden = !l || l.kind !== 'text';
+    $('adjustProps').hidden = !l || !isPhoto(l) || !l.img;
+    if (!l) return;
+    const geo = isPhoto(l) || isBlock(l);
+    $('props').querySelector('summary').textContent = KIND_TITLE[l.kind] || '選取的圖層';
+    $('shapeField').hidden = !geo;
+    $('shapeMore').hidden = !isBlock(l);
+    $('lineWField').hidden = !(isBlock(l) && isOpen(l));
+    $('fillField').hidden = !isBlock(l);
+    $('borderField').hidden = !geo || isOpen(l);
+    $('drawField').hidden = l.kind !== 'draw';
+    $('replacePhoto').hidden = !isPhoto(l);
+    $('fill').value = l.fill;
+    document.querySelectorAll('#props .photo-only').forEach(el => { el.hidden = !isPhoto(l); });
+    document.querySelectorAll('#shape button, #shapeMore button').forEach(b => b.classList.toggle('on', b.dataset.shape === l.shape));
+    $('radiusField').hidden = !geo || l.shape !== 'rounded';
+    $('radius').value = $('radiusN').value = l.radius;
+    $('lineW').value = $('lineWN').value = l.lineW;
+    $('rot').value = $('rotN').value = Math.round(l.rot);
+    $('border').value = l.border;
+    $('borderColor').value = l.borderColor;
+    $('zoomIn').value = l.zoom;
+    $('opacity').value = $('opacityN').value = l.opacity;
+    $('cropMode').disabled = !l.img;
+    $('restoreAspect').disabled = !l.img;
+    $('cropMode').textContent = state.crop ? '完成裁切' : '調整框內照片';
+    $('cropMode').classList.toggle('primary', state.crop);
+    $('cropHint').hidden = !state.crop;
+    $('replacePhoto').textContent = l.img ? '換照片' : '放入照片';
+    $('flipH').classList.toggle('on', !!l.flipH);
+    $('flipV').classList.toggle('on', !!l.flipV);
+    $('shadowBlur').value = l.shadowBlur;
+    $('shadowColor').value = l.shadowColor;
+    $('shadowX').value = l.shadowX;
+    $('shadowY').value = l.shadowY;
+    $('drawColor').value = l.color;
+    $('drawWidth').value = l.lineW;
+    if (l.kind === 'text') syncTextProps(l);
+    if (isPhoto(l) && l.img) {
+      for (const k of Object.keys(ADJ_DEFAULT)) {
+        $(k).value = l[k];
+        if ($(k + 'N')) $(k + 'N').value = l[k];
+      }
+    }
+  }
+
+  function syncTextProps(l) {
+    if (document.activeElement !== $('textInput')) $('textInput').value = l.text;
+    $('font').value = l.font;
+    $('fontSize').value = Math.round(l.fontSize);
+    $('color').value = l.color;
+    $('lineHeight').value = $('lineHeightN').value = l.lineHeight;
+    $('letterSpacing').value = $('letterSpacingN').value = l.letterSpacing;
+    $('strokeWidth').value = l.strokeWidth;
+    $('strokeColor').value = l.strokeColor;
+    $('textBg').value = l.textBg;
+    $('textBgPad').value = l.textBgPad;
+    $('textBgOn').classList.toggle('on', !!l.textBgOn);
+    $('bold').classList.toggle('on', !!l.bold);
+    $('italic').classList.toggle('on', !!l.italic);
+    $('vertical').classList.toggle('on', !!l.vertical);
+    document.querySelectorAll('#textProps [data-align]').forEach(b => b.classList.toggle('on', b.dataset.align === l.align));
+    const d = FONT_BY.get(l.font), st = fontState.get(l.font);
+    const cov = d && d.c !== undefined ? `繁中覆蓋率約 ${d.c}%` : '';
+    // Only a family with a real 700 face can be genuinely bold; the rest get the browser's
+    // synthetic bold, which is worth saying out loud.
+    const fake = l.bold && d && !d.sys && d.f !== 'emoji' && !String(d.w || '').includes('700');
+    $('fontNote').textContent = st === 'loading' ? '字型載入中…'
+      : st === 'failed' ? '這個字型載入失敗（可能是離線），暫時用系統字型顯示。'
+      : fake ? (cov ? cov + '；' : '') + '此字型沒有粗體，使用模擬粗體'
+      : cov;
+    updateGlyphWarn(l);
+  }
+
+  // syncProps() runs on every slider tick and every repaint, but the warning can only change when
+  // the text, the family or the family's load state does.
+  let glyphWarnKey = null;
+  function updateGlyphWarn(l) {
+    const st = fontState.get(l.font);
+    const key = `${fontEpoch}|${l.font}|${st}|${l.text}`;
+    if (key === glyphWarnKey) return;
+    glyphWarnKey = key;
+    const el = $('glyphWarn');
+    const miss = st === 'ready' ? missingChars(l.font, String(l.text || '')) : [];
+    el.hidden = miss.length === 0;
+    el.textContent = miss.length
+      ? `這個字型缺少 ${miss.length} 個字：${miss.slice(0, 20).join('')}${miss.length > 20 ? '…' : ''}（會改用系統字型顯示）`
+      : '';
+  }
+
+  function syncBgFields() {
+    const t = $('bgType').value;
+    $('bgGradField').hidden = t !== 'gradient';
+    $('bgPhotoField').hidden = t !== 'photo';
+    $('bgAngleN').value = $('bgAngle').value;
+  }
+  // The blurred-photo background can only use a photo that is still on the canvas.
+  let bgPhotoWanted = null; // id from a project being restored, kept until its photo has loaded
+  function syncBgPhotoOptions() {
+    const sel = $('bgPhoto'), cur = bgPhotoWanted || sel.value;
+    const seen = new Map();
+    for (const l of state.layers) if (l.img && !seen.has(l.imgId)) seen.set(l.imgId, l.name);
+    sel.innerHTML = '';
+    for (const [id, name] of seen) {
+      const o = document.createElement('option');
+      o.value = id; o.textContent = name;
+      sel.appendChild(o);
+    }
+    if (seen.has(cur)) sel.value = cur;
+    else if (seen.size) sel.value = [...seen.keys()][0];
+    // The wanted photo had its chance: keeping it would silently override the user's own choice
+    // on every later re-render.
+    if (seen.size) bgPhotoWanted = null;
+  }
+
+  function select(i) {
+    if (i !== state.sel) state.crop = false;
+    setBrush(false); // picking a layer means you are done drawing
+    state.sel = i;
+    renderLayerList();
+    render(false);
+  }
+  function setCrop(on) {
+    if (on) setBrush(false); // the two modes can never be on at once
+    state.crop = on && editable(selected()) && !!selected().img;
+    syncProps();
+    render(false);
+  }
+  // Move layer `from` to insertion index `to` (array order is bottom→top).
+  function moveLayer(from, to) {
+    const [l] = state.layers.splice(from, 1);
+    const at = clamp(to > from ? to - 1 : to, 0, state.layers.length);
+    state.layers.splice(at, 0, l);
+    state.sel = at;
+  }
+  // Frame back to the photo's own aspect ratio (keeps height and centre), crop cleared.
+  function restoreAspect(l) {
+    if (!l.img) return;
+    const c = centre(l), ar = l.img.naturalWidth / l.img.naturalHeight;
+    l.w = l.h * ar; l.x = c.x - l.w / 2; l.y = c.y - l.h / 2;
+    l.zoom = 1; l.px = 0; l.py = 0;
+    if (l.shape === 'circle') l.shape = 'rect';
+  }
+
+  // Every control in the side panels edits the selected layer, so they all go through this:
+  // a locked or hidden layer is never mutated, whichever control was used.
+  const editTarget = () => { const l = selected(); return editable(l) ? l : null; };
+  const textTarget = () => { const l = editTarget(); return l && l.kind === 'text' ? l : null; };
+
+  function bindProp(id, key, numId, fix) {
+    const apply = v => {
+      const l = editTarget();
+      if (!l || Number.isNaN(v)) return;
+      l[key] = v;
+      if (fix) fix(l);
+      syncProps();
+      render();
+    };
+    $(id).addEventListener('input', e => apply(parseFloat(e.target.value)));
+    if (numId) $(numId).addEventListener('input', e => apply(parseFloat(e.target.value)));
+  }
+  function bindColour(id, key, relist) {
+    $(id).addEventListener('input', e => {
+      const l = editTarget();
+      if (!l) return;
+      l[key] = e.target.value;
+      if (relist) paintLayerSwatch(l);
+      render();
+    });
+  }
+  // Dragging a colour picker fires `input` continuously and the only thing that changes in the
+  // layer list is one swatch, so the row is patched in place; anything else falls back to a rebuild.
+  function paintLayerSwatch(l) {
+    const i = state.layers.indexOf(l);
+    const li = i < 0 ? null : $('layers').children[state.layers.length - 1 - i];
+    const sw = li && li.firstElementChild;
+    if (sw && sw.tagName === 'DIV' && (isBlock(l) || l.kind === 'draw')) sw.style.background = isBlock(l) ? l.fill : l.color;
+    else renderLayerList();
+  }
+  // Every "click a button, change the selected layer" control has the same shape: take the target,
+  // bail when there is none, mutate it, then re-sync the panels and repaint.
+  function onEdit(el, fn, target = editTarget) {
+    (typeof el === 'string' ? $(el) : el).addEventListener('click', () => {
+      const l = target();
+      if (!l) return;
+      fn(l);
+      syncProps();
+      render();
+    });
+  }
+  // One labelled chip button appended to a host list (filter presets, text presets, stickers).
+  const addChip = (host, label) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    $(host).appendChild(b);
+    return b;
+  };
+  bindProp('radius', 'radius', 'radiusN');
+  bindProp('rot', 'rot', 'rotN');
+  bindProp('border', 'border');
+  bindProp('zoomIn', 'zoom');
+  bindProp('opacity', 'opacity', 'opacityN');
+  bindProp('lineW', 'lineW', 'lineWN');
+  bindProp('drawWidth', 'lineW');
+  bindProp('shadowBlur', 'shadowBlur');
+  bindProp('shadowX', 'shadowX');
+  bindProp('shadowY', 'shadowY');
+  bindColour('borderColor', 'borderColor');
+  bindColour('fill', 'fill', true);
+  bindColour('shadowColor', 'shadowColor');
+  bindColour('drawColor', 'color', true);
+  onEdit('shadowOff', l => { l.shadowBlur = 0; l.shadowX = 0; l.shadowY = 0; });
+  for (const k of ['flipH', 'flipV']) onEdit(k, l => { l[k] = !l[k]; });
+
+  // ---------- photo adjustments ----------
+  for (const k of Object.keys(ADJ_DEFAULT)) {
+    const numId = $(k + 'N') ? k + 'N' : null;
+    scrubbable(k, numId); // registered first so the redraw it triggers already knows it is a scrub
+    bindProp(k, k, numId);
+  }
+  const FILTER_PRESETS = [
+    ['原圖', {}],
+    ['鮮豔', { satur: 155, contrast: 112 }],
+    ['暖色', { warmth: 55, bright: 104 }],
+    ['冷色', { warmth: -55, satur: 108 }],
+    ['復古', { warmth: 38, satur: 78, contrast: 92, bright: 106 }],
+    ['褪色底片', { contrast: 84, satur: 72, bright: 110, fade: 18 }],
+    ['黑白', { fade: 100 }],
+    ['高對比黑白', { fade: 100, contrast: 150 }],
+    ['柔和', { bright: 106, contrast: 92, satur: 92, blurPx: 3 }],
+  ];
+  for (const [name, vals] of FILTER_PRESETS) {
+    onEdit(addChip('filterPresets', name), l => Object.assign(l, ADJ_DEFAULT, vals));
+  }
+
+  // ---------- text ----------
+  function buildFontSelect() {
+    const sel = $('font');
+    sel.innerHTML = '';
+    for (const [g, label] of FONT_GROUPS) {
+      const og = document.createElement('optgroup');
+      og.label = label;
+      for (const d of FONTS.filter(x => x.g === g)) {
+        const o = document.createElement('option');
+        o.value = d.f;
+        o.dataset.fam = d.f;
+        o.textContent = d.n + (d.c !== undefined && d.c < 100 ? `（${d.c}%）` : '');
+        if (d.sys) o.style.fontFamily = fontStack(d.f); // system fonts need no download
+        og.appendChild(o);
+      }
+      sel.appendChild(og);
+    }
+  }
+  buildFontSelect();
+  // Show an option in its own face only once that face is actually available.
+  function markFontLabel(fam) {
+    if (fontState.get(fam) !== 'ready') return;
+    const o = $('font').querySelector(`option[data-fam="${CSS.escape(fam)}"]`);
+    if (o) o.style.fontFamily = fontStack(fam);
+  }
+  // Load the font a layer needs, then re-measure and repaint.
+  function useFont(l) {
+    syncProps();
+    ensureFont(l.font, String(l.text || '')).then(() => {
+      markFontLabel(l.font);
+      if (state.layers.includes(l)) autoSizeText(l);
+      syncProps();
+      render();
+    });
+    autoSizeText(l);
+    render();
+  }
+  const refit = l => { if (l.kind === 'text') autoSizeText(l); };
+  bindProp('fontSize', 'fontSize', null, refit);
+  bindProp('lineHeight', 'lineHeight', 'lineHeightN', refit);
+  bindProp('letterSpacing', 'letterSpacing', 'letterSpacingN', refit);
+  bindProp('strokeWidth', 'strokeWidth', null, refit);
+  bindProp('textBgPad', 'textBgPad', null, refit);
+  bindColour('color', 'color');
+  bindColour('strokeColor', 'strokeColor');
+  bindColour('textBg', 'textBg');
+  // 注音 / IME: every keystroke of a composition fires `input` with a half-finished string. Applying
+  // those would re-measure the box and kick off a font-subset fetch per bopomofo key, so the text is
+  // only taken once the composition ends.
+  function applyTextInput() {
+    const l = textTarget();
+    if (!l) return;
+    l.text = $('textInput').value;
+    autoSizeText(l);
+    renderLayerList();
+    ensureFont(l.font, l.text).then(() => { autoSizeText(l); updateGlyphWarn(l); render(); });
+    render();
+  }
+  $('textInput').addEventListener('input', e => { if (!e.isComposing) applyTextInput(); });
+  $('textInput').addEventListener('compositionend', applyTextInput);
+  $('font').addEventListener('change', e => {
+    const l = textTarget();
+    if (!l) return;
+    l.font = e.target.value;
+    useFont(l);
+  });
+  // All four are the same toggle: flip the flag, re-fit the box around the new text shape.
+  for (const id of ['bold', 'italic', 'vertical', 'textBgOn']) {
+    onEdit(id, l => { l[id] = !l[id]; autoSizeText(l); }, textTarget);
+  }
+  document.querySelectorAll('#textProps [data-align]').forEach(b =>
+    onEdit(b, l => { l.align = b.dataset.align; }, textTarget));
+
+  const TEXT_PRESETS = [
+    ['白字黑邊', { color: '#ffffff', strokeWidth: 8, strokeColor: '#000000', textBgOn: false, shadowBlur: 0, shadowX: 0, shadowY: 0, font: 'Noto Sans TC', bold: true }],
+    ['黑字白底條', { color: '#111111', strokeWidth: 0, textBgOn: true, textBg: '#ffffff', textBgPad: 18, shadowBlur: 0, shadowX: 0, shadowY: 0, font: 'Noto Sans TC', bold: true }],
+    ['霓虹光暈', { color: '#ffffff', strokeWidth: 0, textBgOn: false, shadowColor: '#ff2d95', shadowBlur: 36, shadowX: 0, shadowY: 0, font: 'Noto Sans TC', bold: true }],
+    ['立體陰影', { color: '#ffd400', strokeWidth: 4, strokeColor: '#1b1b1b', textBgOn: false, shadowColor: '#1b1b1b', shadowBlur: 0, shadowX: 12, shadowY: 12, font: 'Dela Gothic One', bold: false }],
+    ['復古明體', { color: '#3b2f22', strokeWidth: 0, textBgOn: false, shadowBlur: 0, shadowX: 0, shadowY: 0, font: 'Cactus Classical Serif', bold: false, letterSpacing: 4 }],
+    ['手寫風', { color: '#2b2b2b', strokeWidth: 0, textBgOn: false, shadowBlur: 0, shadowX: 0, shadowY: 0, font: 'Iansui', bold: false }],
+    ['大標題海報', { color: '#111111', strokeWidth: 0, textBgOn: false, shadowBlur: 0, shadowX: 0, shadowY: 0, font: 'Dela Gothic One', lineHeight: 1.05, letterSpacing: 2 }],
+    ['直排標題', { vertical: true, color: '#ffffff', strokeWidth: 6, strokeColor: '#000000', textBgOn: false, font: 'Noto Serif TC', letterSpacing: 6, bold: true }],
+  ];
+  // Not onEdit: useFont() already re-syncs and repaints once the family has loaded.
+  for (const [name, vals] of TEXT_PRESETS) {
+    addChip('textPresets', name).addEventListener('click', () => {
+      const l = textTarget();
+      if (!l) return;
+      Object.assign(l, vals);
+      useFont(l);
+    });
+  }
+
+  // New text layer, centred on the first slide.
+  function addText(text, opts = {}) {
+    const H = stripH();
+    const l = newLayer({}, MIN_SIZE, MIN_SIZE, 0, 0);
+    l.kind = 'text';
+    l.text = text;
+    l.fontSize = Math.round(H * 0.09);
+    Object.assign(l, opts);
+    const s = textBoxSize(l);
+    l.w = s.w; l.h = s.h;
+    l.x = (SLIDE_W - l.w) / 2; l.y = (H - l.h) / 2;
+    state.layers.push(l);
+    state.sel = state.layers.length - 1;
+    state.crop = false;
+    setBrush(false);
+    renderLayerList();
+    useFont(l);
+    $('textProps').open = true;
+  }
+  $('addText').addEventListener('click', () => addText('輸入文字'));
+
+  const EMOJI = ('😀😂🥰😍🤩😎🥳😭😡🤔👍👎👏🙌🙏💪✌️👀💯🔥✨⭐🌟💥💫🎉🎊🎁🎂🍰☕🍔🍜🍣🍎🌸🌺🌈☀️🌙☁️❄️💧🌊🐶🐱🐰🐻🦊🐼🦋❤️🧡💛💚💙💜🖤🤍💔💌📌📍🔖').match(/\p{Extended_Pictographic}(️)?/gu) || [];
+  for (const ch of EMOJI) {
+    addChip('emoji', ch).addEventListener('click', () =>
+      addText(ch, { font: 'emoji', fontSize: Math.round(stripH() * 0.16), strokeWidth: 0, textBgOn: false }));
+  }
+
+  // ---------- brush ----------
+  // The brush is a mode of its own: it never coexists with a selection or with crop mode, and it
+  // ends on Esc, on any layer being selected or added, on undo and on a project being opened.
+  let brushOn = false, stroke = null;
+  function setBrush(on) {
+    if (on === brushOn) return;
+    brushOn = on;
+    $('brush').classList.toggle('on', on);
+    $('brush').textContent = on ? '畫筆中（Esc 結束）' : '畫筆';
+    $('brushOpts').hidden = !on;
+    ui.style.cursor = on ? 'crosshair' : 'default';
+    if (on) { state.crop = false; state.sel = -1; renderLayerList(); render(false); }
+    else { stroke = null; render(false); }
+  }
+  $('brush').addEventListener('click', () => setBrush(!brushOn));
+  // New block / empty slot: centred on the first slide, 60% of the height.
+  function addShape(kind) {
+    const H = stripH(), h = H * 0.6, w = kind === 'block' ? SLIDE_W * 0.8 : h * 0.8;
+    const l = newLayer({}, w, h, (SLIDE_W - w) / 2, (H - h) / 2);
+    l.kind = kind;
+    setBrush(false);
+    state.layers.push(l);
+    state.sel = state.layers.length - 1;
+    state.crop = false;
+    renderLayerList();
+    render();
+  }
+  $('addBlock').addEventListener('click', () => addShape('block'));
+  $('addSlot').addEventListener('click', () => addShape('photo'));
+  onEdit('resetCrop', l => { l.zoom = 1; l.px = 0; l.py = 0; });
+  $('cropMode').addEventListener('click', () => setCrop(!state.crop));
+  onEdit('restoreAspect', restoreAspect);
+  $('replacePhoto').addEventListener('click', () => { const l = editTarget(); if (l) pickPhotoFor(l); });
+  document.querySelectorAll('#shape button, #shapeMore button').forEach(b => onEdit(b, l => {
+    const wasCircle = l.shape === 'circle';
+    l.shape = b.dataset.shape;
+    if (wasCircle && l.shape !== 'circle' && l.img) restoreAspect(l);
+    if (l.shape === 'circle') {
+      const c = centre(l), side = Math.min(l.w, l.h);
+      l.w = l.h = side; l.x = c.x - side / 2; l.y = c.y - side / 2;
+    }
+  }));
+
+  // ---------- photos ----------
+  const LAYER_PROPS = ['kind', 'fill', 'name', 'x', 'y', 'w', 'h', 'rot', 'shape', 'radius', 'border', 'borderColor',
+    'opacity', 'zoom', 'px', 'py',
+    // layer utilities
+    'locked', 'hidden', 'flipH', 'flipV', 'shadowColor', 'shadowBlur', 'shadowX', 'shadowY', 'lineW',
+    // photo adjustments
+    'bright', 'contrast', 'satur', 'warmth', 'fade', 'blurPx',
+    // text
+    'text', 'font', 'fontSize', 'color', 'align', 'bold', 'italic', 'lineHeight', 'letterSpacing',
+    'vertical', 'strokeWidth', 'strokeColor', 'textBg', 'textBgOn', 'textBgPad',
+    // freehand stroke
+    'pts', 'baseW', 'baseH'];
+
+  // Props measured in strip pixels: changing the ratio scales every one of them by the height
+  // factor, or the composition would not survive the change. Which ones apply depends on the kind:
+  // type metrics only exist on text, and a stroke layer derives its width from l.w / l.baseW, so
+  // scaling its lineW as well would apply the factor twice. `bgBlur` is the one strip-pixel value
+  // that does not live on a layer; the ratio handler scales it separately.
+  const STRIP_PX_PROPS = ['x', 'y', 'w', 'h', 'border', 'shadowBlur', 'shadowX', 'shadowY', 'blurPx',
+    'lineW', 'fontSize', 'letterSpacing', 'strokeWidth', 'textBgPad'];
+  const TEXT_PX_PROPS = new Set(['fontSize', 'letterSpacing', 'strokeWidth', 'textBgPad']);
+  const scalesWithRatio = (l, k) =>
+    TEXT_PX_PROPS.has(k) ? l.kind === 'text'
+      : k === 'lineW' ? l.kind !== 'text' && l.kind !== 'draw'
+      : true;
+
+  // kind: 'photo' (a frame that holds a photo, or an empty slot), 'block' (shape), 'text' or 'draw'.
+  // Every new persistent prop needs a default here so older project files still open.
+  function newLayer(photo, w, h, x, y) {
+    return { kind: 'photo', fill: '#ffffff', img: null, bmp: null, url: null, blob: null, imgId: null, name: '', ...photo,
+      x, y, w, h, rot: 0, shape: 'rect', radius: 20, border: 0, borderColor: '#ffffff',
+      opacity: 100, zoom: 1, px: 0, py: 0,
+      locked: false, hidden: false, flipH: false, flipV: false,
+      shadowColor: '#000000', shadowBlur: 0, shadowX: 0, shadowY: 0, lineW: 10,
+      ...ADJ_DEFAULT,
+      text: '', font: 'Noto Sans TC', fontSize: 120, color: '#ffffff', align: 'center',
+      bold: false, italic: false, lineHeight: 1.25, letterSpacing: 0, vertical: false,
+      strokeWidth: 0, strokeColor: '#000000', textBg: '#ffffff', textBgOn: false, textBgPad: 16,
+      pts: null, baseW: 0, baseH: 0 };
+  }
+
+  // Decode once; also build a smaller bitmap so editing never resamples the full-size original.
+  async function loadPhoto(blob, name, imgId) {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    // Wait for `load`, not img.decode(): decode() can reject for very large photos that load fine.
+    const ok = await new Promise(res => { img.onload = () => res(true); img.onerror = () => res(false); img.src = url; });
+    if (!ok || !img.naturalWidth) {
+      URL.revokeObjectURL(url);
+      alert(`無法讀取照片：${name}`);
+      return null;
+    }
+    await img.decode().catch(() => {}); // best effort: pre-decode off the main thread
+    const photo = { img, bmp: null, url, blob, imgId: imgId || crypto.randomUUID(), name };
+    photoRegistry.set(photo.imgId, photo);
+    const s = Math.min(1, WORK_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    if (s < 1 && window.createImageBitmap) {
+      createImageBitmap(img, { resizeWidth: Math.round(img.naturalWidth * s), resizeHeight: Math.round(img.naturalHeight * s), resizeQuality: 'high' })
+        .then(bmp => {
+          photo.bmp = bmp;
+          state.layers.forEach(l => { if (l.imgId === photo.imgId) l.bmp = bmp; });
+          render(); // the scrub proxy is built on demand, the first time a filter slider moves
+        })
+        .catch(() => {});
+    }
+    return photo;
+  }
+  const photoFields = p => ({ img: p.img, bmp: p.bmp, url: p.url, blob: p.blob, imgId: p.imgId, name: p.name });
+
+  function defaultPlacement(img) {
+    const W = stripW(), H = stripH();
+    let h = H, w = img.naturalWidth * H / img.naturalHeight;
+    if (w > W) { w = W; h = img.naturalHeight * W / img.naturalWidth; }
+    const n = state.layers.length;
+    const cx = n === 0 ? W / 2 : (n % slideCount()) * SLIDE_W + SLIDE_W / 2;
+    return { w, h, x: clamp(cx - w / 2, 0, Math.max(0, W - w)), y: (H - h) / 2 };
+  }
+
+  // Adds photos in the chosen order. Empty template slots are filled first.
+  async function addFiles(files) {
+    const list = [...files];
+    const proj = list.find(f => /\.json$/i.test(f.name));
+    if (proj) { await openProjectSafely(proj); return; }
+    for (const file of list.filter(f => f.type.startsWith('image/'))) {
+      const photo = await loadPhoto(file, file.name);
+      if (!photo) continue;
+      setBrush(false);
+      // A hidden or locked slot is not something the user can see or fix, so never fill one.
+      const slot = state.layers.find(l => isSlot(l) && editable(l));
+      if (slot) {
+        Object.assign(slot, photoFields(photo), { zoom: 1, px: 0, py: 0 });
+        state.sel = state.layers.indexOf(slot);
+      } else {
+        const p = defaultPlacement(photo.img);
+        state.layers.push(newLayer(photoFields(photo), p.w, p.h, p.x, p.y));
+        state.sel = state.layers.length - 1;
+      }
+      state.crop = false;
+      renderLayerList();
+      render();
+    }
+  }
+
+  // Put a photo into an existing frame (template slot or "replace photo"), then go straight to cropping.
+  async function fillLayer(l, file) {
+    if (!editable(l)) return;
+    const photo = await loadPhoto(file, file.name);
+    if (!photo) return;
+    Object.assign(l, photoFields(photo), { zoom: 1, px: 0, py: 0 });
+    state.sel = state.layers.indexOf(l);
+    setBrush(false);
+    renderLayerList();
+    setCrop(true); // goes through the same guard as every other way into crop mode
+    render();
+  }
+
+  let pendingSlot = null;
+  function pickPhotoFor(l) { pendingSlot = l; $('slotFile').click(); }
+  $('slotFile').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (f && pendingSlot) fillLayer(pendingSlot, f);
+    pendingSlot = null;
+    e.target.value = '';
+  });
+
+  const drop = $('drop');
+  const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+  drop.addEventListener('click', () => $('file').click());
+  $('file').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+  document.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); drop.classList.add('over'); } });
+  document.addEventListener('dragleave', e => { if (hasFiles(e) && !e.relatedTarget) drop.classList.remove('over'); });
+  document.addEventListener('drop', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    drop.classList.remove('over');
+    wrap.classList.remove('over');
+    if (!wrap.contains(e.target)) addFiles(e.dataTransfer.files);
+  });
+  // Dropping a photo onto a frame on the canvas puts it into that frame.
+  wrap.addEventListener('dragover', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    wrap.classList.add('over');
+    const i = topLayerAt(toStrip(e));
+    if (i !== state.hover) { state.hover = i; render(false); }
+  });
+  wrap.addEventListener('dragleave', () => wrap.classList.remove('over'));
+  wrap.addEventListener('drop', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    wrap.classList.remove('over');
+    state.hover = -1;
+    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    const i = topLayerAt(toStrip(e));
+    if (files.length === 1 && i >= 0 && isPhoto(state.layers[i])) fillLayer(state.layers[i], files[0]);
+    else addFiles(e.dataTransfer.files);
+  });
+
+  // ---------- templates ----------
+  // Slots use slide units horizontally (1 = one slide width) and 0–1 of the height vertically.
+  // Circle slots give cx/cy/h; their width equals their height in pixels.
+  const TEMPLATES = [
+    { name: '全景 2 張', count: 2, slots: [{ x: 0, y: 0, w: 2, h: 1 }] },
+    { name: '全景 3 張', count: 3, slots: [{ x: 0, y: 0, w: 3, h: 1 }] },
+    { name: '全景 4 張', count: 4, slots: [{ x: 0, y: 0, w: 4, h: 1 }] },
+    { name: '留白框 3 張', count: 3, slots: [0, 1, 2].map(i => ({ x: i + 0.08, y: 0.1, w: 0.84, h: 0.8 })) },
+    { name: '跨頁大圖＋單張', count: 3, slots: [{ x: 0.08, y: 0.1, w: 1.84, h: 0.8 }, { x: 2.08, y: 0.1, w: 0.84, h: 0.8 }] },
+    { name: '單張＋跨頁大圖', count: 3, slots: [{ x: 0.08, y: 0.1, w: 0.84, h: 0.8 }, { x: 1.08, y: 0.1, w: 1.84, h: 0.8 }] },
+    { name: '跨縫拼貼', count: 3, slots: [
+      { x: 0.07, y: 0.07, w: 1.18, h: 0.55 }, { x: 0.92, y: 0.4, w: 1.25, h: 0.52 }, { x: 2.02, y: 0.1, w: 0.9, h: 0.62 }] },
+    { name: '滿版＋圓形焦點', count: 3, slots: [{ x: 0, y: 0, w: 3, h: 1 }, { cx: 1.5, cy: 0.5, h: 0.5, shape: 'circle', border: 14 }] },
+    { name: '高低錯落 4 張', count: 4, slots: [0, 1, 2, 3].map(i => ({ x: i + 0.1, y: i % 2 ? 0.34 : 0.06, w: 0.8, h: 0.6 })) },
+    { name: '跨縫直幅 3 張', count: 3, slots: [{ x: 0.12, y: 0.08, w: 0.76, h: 0.84 }, { x: 0.62, y: 0.2, w: 0.76, h: 0.72 }, { cx: 2.2, cy: 0.5, h: 0.84, w: 0.9 }] },
+  ];
+
+  // Page layouts measured from the reference carousel (4:5 slides). Applied to an empty canvas
+  // they set it up; otherwise they are appended after the last slide.
+  const PAGE_TEMPLATES = [
+    { name: '背景＋拍立得框', count: 1, bg: '#000000', slots: [
+      { x: 0, y: 0, w: 1, h: 1 },
+      { x: 0.19, y: 0.2, w: 0.62, h: 0.6, border: 32 }] },
+    { name: '上下兩張橫幅', count: 1, bg: '#ffffff', slots: [
+      { x: 0.077, y: 0.033, w: 0.846, h: 0.402 },
+      { x: 0.077, y: 0.476, w: 0.846, h: 0.402 }] },
+    { name: '跨頁背景＋三連框', count: 2, bg: '#ffffff', slots: [
+      { x: 0, y: 0, w: 2, h: 1 },
+      { x: 0.44, y: 0.264, w: 1.12, h: 0.469, kind: 'block', fill: '#ffffff' },
+      { x: 0.447, y: 0.271, w: 0.361, h: 0.455 },
+      { x: 0.815, y: 0.271, w: 0.363, h: 0.455 },
+      { x: 1.185, y: 0.271, w: 0.367, h: 0.455 }] },
+    { name: '一橫兩直', count: 1, bg: '#ffffff', slots: [
+      { x: 0.076, y: 0.043, w: 0.847, h: 0.417 },
+      { x: 0.076, y: 0.476, w: 0.413, h: 0.417 },
+      { x: 0.51, y: 0.476, w: 0.413, h: 0.417 }] },
+    { name: '置中單張直幅', count: 1, bg: '#ffffff', slots: [
+      { x: 0.225, y: 0.088, w: 0.549, h: 0.786 }] },
+    { name: '滿版單張', count: 1, slots: [{ x: 0, y: 0, w: 1, h: 1 }] },
+  ];
+
+  function slotRect(s, H) {
+    if (s.cx !== undefined) {
+      const h = s.h * H, w = s.w !== undefined ? s.w * SLIDE_W : h;
+      return { x: s.cx * SLIDE_W - w / 2, y: s.cy * H - h / 2, w, h };
+    }
+    return { x: s.x * SLIDE_W, y: s.y * H, w: s.w * SLIDE_W, h: s.h * H };
+  }
+
+  function templateThumb(t) {
+    const H = 1350, W = t.count * SLIDE_W;
+    let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" fill="${t.bg || '#fff'}" stroke="#ccc" stroke-width="12"/>`;
+    for (let i = 1; i < t.count; i++) s += `<line x1="${i * SLIDE_W}" y1="0" x2="${i * SLIDE_W}" y2="${H}" stroke="#ff4d6d" stroke-width="14" stroke-dasharray="40 30"/>`;
+    const tones = ['#8b93b8', '#a3abcc', '#727aa0'];
+    let n = 0;
+    for (const sl of t.slots) {
+      const r = slotRect(sl, H);
+      const fill = sl.kind === 'block' ? (sl.fill || '#fff') : tones[n++ % tones.length];
+      const stroke = sl.border ? `stroke="#fff" stroke-width="${sl.border * 2}"` : 'stroke="#fff" stroke-width="10"';
+      s += sl.shape === 'circle'
+        ? `<ellipse cx="${r.x + r.w / 2}" cy="${r.y + r.h / 2}" rx="${r.w / 2}" ry="${r.h / 2}" fill="${fill}" ${stroke}/>`
+        : `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${fill}" ${stroke}/>`;
+    }
+    return s + '</svg>';
+  }
+
+  function templateLayers(t, H, offsetSlides, photos) {
+    let pi = 0;
+    return t.slots.map(s => {
+      const r = slotRect(s, H);
+      const isB = s.kind === 'block';
+      const photo = !isB && photos[pi] ? photoFields(photos[pi++]) : {};
+      const l = newLayer(photo, r.w, r.h, r.x + offsetSlides * SLIDE_W, r.y);
+      l.kind = isB ? 'block' : 'photo';
+      if (s.fill) l.fill = s.fill;
+      l.shape = s.shape || 'rect';
+      l.border = s.border || 0;
+      return l;
+    });
+  }
+
+  // Whole-carousel template: replaces the photo layout; existing photos flow into the slots in
+  // order and everything that is not a photo (text, stickers, strokes, colour blocks) is kept.
+  function applyTemplate(t) {
+    const photos = state.layers.filter(l => l.img);
+    const others = state.layers.filter(l => !isPhoto(l));
+    if (state.layers.length && !confirm('套用整組版型會換掉照片的排版：現有照片依序放進新欄位，文字、貼紙、筆畫、色塊會保留在最上層。\n\n按錯了可以按 Ctrl+Z 復原。確定要套用嗎？')) return;
+    commit(); // the current canvas becomes its own undo step, even mid-debounce
+    setBrush(false);
+    $('count').value = t.count;
+    lastH = stripH();
+    if (t.bg) $('bg').value = t.bg;
+    const slots = templateLayers(t, stripH(), 0, photos);
+    const used = slots.filter(l => l.img).length;
+    state.layers = [...slots, ...photos.slice(used), ...others];
+    state.sel = -1;
+    state.crop = false;
+    renderLayerList();
+    render();
+  }
+
+  // Page template: set up an empty canvas, or append after the last slide.
+  function applyPageTemplate(t) {
+    if (!state.layers.length) { applyTemplate(t); return; }
+    const offset = slideCount();
+    if (offset + t.count > 20) { alert('IG 一則最多 20 張，放不下這個版型了。'); return; }
+    commit();
+    setBrush(false);
+    $('count').value = offset + t.count;
+    state.layers.push(...templateLayers(t, stripH(), offset, []));
+    state.sel = -1;
+    state.crop = false;
+    renderLayerList();
+    render();
+    // Bring the new pages into view.
+    requestAnimationFrame(() => wrap.scrollIntoView({ block: 'nearest' }));
+  }
+
+  const addTemplateButtons = (list, host, apply) => list.forEach(t => {
+    const b = document.createElement('button');
+    b.innerHTML = templateThumb(t) + `<span>${t.name}${t.count > 1 && host === 'pageTemplates' ? `（${t.count} 張）` : ''}</span>`;
+    b.addEventListener('click', () => apply(t));
+    $(host).appendChild(b);
+  });
+  addTemplateButtons(TEMPLATES, 'templates', applyTemplate);
+  addTemplateButtons(PAGE_TEMPLATES, 'pageTemplates', applyPageTemplate);
+
+  // ---------- canvas settings ----------
+  let lastH = stripH();
+  $('ratio').addEventListener('input', () => {
+    // Keep the composition: scale every layer by the height change. Anything measured in strip
+    // pixels has to come along — font size, spacing, shadow offsets, line thickness, blur radii.
+    const f = stripH() / lastH;
+    commit();
+    state.layers.forEach(l => {
+      for (const k of STRIP_PX_PROPS) if (scalesWithRatio(l, k)) l[k] *= f;
+      if (l.kind === 'text') autoSizeText(l);
+    });
+    // The blurred-photo background is measured in strip pixels too.
+    $('bgBlur').value = clamp(Math.round((parseFloat($('bgBlur').value) || 0) * f), 0, 200);
+    lastH = stripH();
+    syncProps();
+    render();
+  });
+  $('count').addEventListener('input', () => { renderLayerList(); render(); }); // the list marks off-canvas layers
+  $('bg').addEventListener('input', () => render());
+  $('bgType').addEventListener('input', () => { syncBgFields(); render(); });
+  scrubbable('bgBlur');
+  for (const id of ['bg2', 'bgPhoto', 'bgBlur', 'bgDim']) $(id).addEventListener('input', () => render());
+  for (const id of ['bgAngle', 'bgAngleN']) $(id).addEventListener('input', e => {
+    $('bgAngle').value = $('bgAngleN').value = e.target.value;
+    render();
+  });
+  syncBgFields();
+  new ResizeObserver(() => { fitW = 0; render(); }).observe(wrap);
+
+  // ---------- snapping ----------
+  function snapTargets(axis, skip) {
+    const W = stripW(), H = stripH(), n = slideCount(), t = [];
+    if (axis === 'x') {
+      t.push(0, W / 2, W);
+      for (let i = 1; i < n; i++) t.push(i * SLIDE_W);
+      for (let i = 0; i < n; i++) t.push(i * SLIDE_W + SLIDE_W / 2);
+    } else {
+      t.push(0, H / 2, H);
+    }
+    for (const l of state.layers) {
+      if (l === skip || l.hidden) continue; // nothing on screen to snap to
+      const c = centre(l), { hw, hh } = halfBox(l);
+      if (axis === 'x') t.push(c.x - hw, c.x, c.x + hw);
+      else t.push(c.y - hh, c.y, c.y + hh);
+    }
+    return t;
+  }
+  function bestSnap(values, targets, thr) {
+    let best = null;
+    for (const v of values) for (const t of targets) {
+      const d = t - v;
+      if (Math.abs(d) <= thr && (!best || Math.abs(d) < Math.abs(best.delta))) best = { delta: d, at: t };
+    }
+    return best;
+  }
+
+  // ---------- hit testing ----------
+  function toStrip(e) {
+    const r = ui.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * stripW() / r.width, y: (e.clientY - r.top) * stripH() / r.height };
+  }
+  // Topmost layer under `p`, or -1. Locked layers are skipped unless asked for: the canvas hit test
+  // ignores them, but a right-click on one must still offer 解除鎖定.
+  function topLayerAt(p, includeLocked = false) {
+    for (let i = state.layers.length - 1; i >= 0; i--) {
+      const l = state.layers[i];
+      if (!l.hidden && (includeLocked || !l.locked) && inside(l, p)) return i;
+    }
+    return -1;
+  }
+  function hitTest(p) {
+    const l = selected(), k = cssToStrip(), r = HANDLE_PX * k * 0.8;
+    if (editable(l) && !state.crop) {
+      const v = toLocal(l, p);
+      if (Math.hypot(v.x, v.y - rotHandleY(l)) <= r) return { type: 'rotate' };
+      for (const [sx, sy] of handleList(l)) {
+        if (Math.abs(v.x - sx * l.w / 2) <= r && Math.abs(v.y - sy * l.h / 2) <= r) return { type: 'handle', sx, sy };
+      }
+    }
+    const i = topLayerAt(p);
+    return i >= 0 ? { type: 'layer', i } : { type: 'none' };
+  }
+  const CURSORS = { rotate: 'grab', layer: 'move', none: 'default' };
+  function cursorFor(h, l) {
+    if (h.type !== 'handle') return CURSORS[h.type];
+    // Rotate the resize cursor with the frame.
+    const a = ((Math.atan2(h.sy, h.sx) * 180 / Math.PI + (l?.rot || 0)) % 180 + 180) % 180;
+    return ['ew', 'nwse', 'ns', 'nesw'][Math.round(a / 45) % 4] + '-resize';
+  }
+  function inCropArea(l, p) {
+    if (inside(l, p)) return true;
+    const v = toLocal(l, p), pr = photoRect(l);
+    return v.x >= pr.x && v.x <= pr.x + pr.dw && v.y >= pr.y && v.y <= pr.y + pr.dh;
+  }
+
+  // ---------- pointer interaction ----------
+  let drag = null;
+  // Touch: every active finger is tracked so a second one can turn any gesture into a pinch.
+  const fingers = new Map();
+  let pinch = null;
+  const fingerDist = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  const fingerMid = () => { const [a, b] = [...fingers.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  function startPinch() {
+    if (stroke) { stroke = null; render(false); }
+    drag = null; dragCache = null; state.guides = [];
+    const l = selected(), cropZoom = state.crop && l?.img && editable(l);
+    const m = fingerMid(), r = wrap.getBoundingClientRect();
+    pinch = { d0: Math.max(1, fingerDist()), cropZoom, z0: cropZoom ? l.zoom : stageZoom, w0: stageCssWidth(),
+      cx: m.x - r.left, sl0: wrap.scrollLeft };
+  }
+  function movePinch() {
+    const ratio = fingerDist() / pinch.d0;
+    if (pinch.cropZoom) {
+      const l = selected();
+      if (!l?.img) return;
+      l.zoom = clamp(pinch.z0 * ratio, 1, 5);
+      syncProps();
+      render();
+      return;
+    }
+    stageZoom = clamp(pinch.z0 * ratio, 1, 6);
+    $('stageZoom').value = String(Math.round(stageZoom * 4) / 4);
+    sizeCanvases();
+    // Keep the point between the fingers where it was.
+    const k = stageCssWidth() / pinch.w0;
+    wrap.scrollLeft = (pinch.sl0 + pinch.cx) * k - pinch.cx;
+    render();
+    syncStageZoom();
+  }
+  ui.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    $('menu').hidden = true;
+    if (e.pointerType === 'touch') {
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      ui.setPointerCapture(e.pointerId);
+      if (fingers.size === 2) { startPinch(); e.preventDefault(); return; }
+      if (fingers.size > 2) { e.preventDefault(); return; }
+    }
+    const p = toStrip(e);
+    if (brushOn) {
+      stroke = { pts: [round1(p.x), round1(p.y)], color: $('brushColor').value, width: parseFloat($('brushWidth').value) || 12 };
+      ui.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+    if (state.crop) {
+      const l = selected();
+      if (editable(l) && inCropArea(l, p)) {
+        drag = { mode: 'pan', l, last: p };
+        buildDragCache(l);
+        ui.setPointerCapture(e.pointerId);
+      } else {
+        setCrop(false);
+      }
+      return;
+    }
+    const h = hitTest(p);
+    if (h.type === 'rotate') {
+      drag = { mode: 'rotate', l: selected() };
+    } else if (h.type === 'handle') {
+      const l = selected(), c = centre(l), a = rotate(-h.sx * l.w / 2, -h.sy * l.h / 2, l.rot);
+      drag = { mode: 'resize', l, sx: h.sx, sy: h.sy, ax: c.x + a.x, ay: c.y + a.y, ar: l.w / l.h, w0: l.w, h0: l.h, fs0: l.fontSize };
+    } else if (h.type === 'layer') {
+      if (h.i !== state.sel) select(h.i);
+      const l = selected();
+      drag = e.ctrlKey || e.metaKey
+        ? { mode: 'pan', l, last: p }
+        : { mode: 'move', l, ox: p.x - l.x, oy: p.y - l.y, start: { x: e.clientX, y: e.clientY }, moved: false };
+    } else if (e.pointerType === 'touch') {
+      // One finger on empty canvas: scroll the zoomed strip sideways and the page up/down;
+      // a tap that never moves still clears the selection on release.
+      drag = { mode: 'scroll', l: null, sx: e.clientX, sy: e.clientY, sl: wrap.scrollLeft, st: scrollY, moved: false };
+      ui.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    } else {
+      if (state.sel !== -1) select(-1);
+      return;
+    }
+    buildDragCache(drag.l);
+    ui.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  ui.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch' && fingers.has(e.pointerId)) {
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch) { if (fingers.size >= 2) movePinch(); return; }
+    }
+    if (drag && drag.mode === 'scroll') {
+      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (!drag.moved && Math.hypot(dx, dy) > 6) drag.moved = true;
+      if (!drag.moved) return;
+      wrap.scrollLeft = drag.sl - dx;
+      scrollTo(scrollX, drag.st - dy);
+      return;
+    }
+    const p = toStrip(e);
+    if (stroke) {
+      // One point every ~2 CSS px at one decimal place: the same curve, a fraction of the JSON
+      // that every undo snapshot and every autosave has to carry.
+      const n = stroke.pts.length, minD = BRUSH_MIN_PX * cssToStrip();
+      if (Math.hypot(p.x - stroke.pts[n - 2], p.y - stroke.pts[n - 1]) > minD) stroke.pts.push(round1(p.x), round1(p.y));
+      render(false);
+      return;
+    }
+    if (!drag) {
+      if (brushOn) return;
+      // Hover feedback only touches the lightweight UI layer.
+      const l = selected();
+      const h = state.crop ? (editable(l) && inCropArea(l, p) ? { type: 'pan' } : { type: 'none' }) : hitTest(p);
+      ui.style.cursor = h.type === 'pan' ? 'grab' : cursorFor(h, l);
+      const hv = h.type === 'layer' ? h.i : -1;
+      if (hv !== state.hover) { state.hover = hv; render(false); }
+      return;
+    }
+    const l = drag.l, thr = SNAP_PX * cssToStrip();
+    state.guides = [];
+    if (drag.mode === 'move') {
+      if (!drag.moved && Math.hypot(e.clientX - drag.start.x, e.clientY - drag.start.y) < 3) return;
+      drag.moved = true;
+      let nx = p.x - drag.ox, ny = p.y - drag.oy;
+      if (!e.altKey) {
+        const { hw, hh } = halfBox(l), cx = nx + l.w / 2, cy = ny + l.h / 2;
+        const sx = bestSnap([cx - hw, cx, cx + hw], snapTargets('x', l), thr);
+        const sy = bestSnap([cy - hh, cy, cy + hh], snapTargets('y', l), thr);
+        if (sx) { nx += sx.delta; state.guides.push({ axis: 'x', at: sx.at }); }
+        if (sy) { ny += sy.delta; state.guides.push({ axis: 'y', at: sy.at }); }
+      }
+      l.x = nx; l.y = ny;
+    } else if (drag.mode === 'pan') {
+      if (!l.img) return;
+      const d = rotate(p.x - drag.last.x, p.y - drag.last.y, -l.rot), pr = photoRect(l);
+      if (pr.dw > l.w) l.px = clamp(l.px - d.x * 2 / (pr.dw - l.w), -1, 1);
+      if (pr.dh > l.h) l.py = clamp(l.py - d.y * 2 / (pr.dh - l.h), -1, 1);
+      drag.last = p;
+    } else if (drag.mode === 'rotate') {
+      const c = centre(l);
+      let a = Math.atan2(p.y - c.y, p.x - c.x) * 180 / Math.PI + 90;
+      if (e.shiftKey) a = Math.round(a / 15) * 15;
+      else if (!e.altKey) { const m = Math.round(a / 45) * 45; if (Math.abs(a - m) < 3) a = m; }
+      l.rot = ((a + 180) % 360 + 360) % 360 - 180;
+      syncProps();
+    } else {
+      resize(drag, p, e.altKey, thr);
+    }
+    render();
+  });
+
+  function resize(d, p, noSnap, thr) {
+    const l = d.l;
+    const v = rotate(p.x - d.ax, p.y - d.ay, -l.rot); // pointer in frame-local axes from the fixed anchor
+    let w = d.w0, h = d.h0;
+    if (d.sx && d.sy) { w = Math.max(d.sx * v.x, d.sy * v.y * d.ar, MIN_SIZE); h = w / d.ar; }
+    else if (d.sx) w = Math.max(d.sx * v.x, MIN_SIZE);
+    else h = Math.max(d.sy * v.y, MIN_SIZE);
+    if (l.kind === 'text') {
+      // Corner handles scale the font; the frame is then re-fitted around the new text size.
+      l.fontSize = Math.max(8, d.fs0 * Math.max(0.05, h / d.h0));
+      const s = textBoxSize(l);
+      l.w = s.w; l.h = s.h;
+      const o = rotate(d.sx * l.w / 2, d.sy * l.h / 2, l.rot);
+      l.x = d.ax + o.x - l.w / 2; l.y = d.ay + o.y - l.h / 2;
+      return;
+    }
+    if (!noSnap && isUpright(l)) {
+      const sx = d.sx ? bestSnap([d.ax + d.sx * w], snapTargets('x', l), thr) : null;
+      const sy = d.sy ? bestSnap([d.ay + d.sy * h], snapTargets('y', l), thr) : null;
+      if (d.sx && d.sy) {
+        if (sx && (!sy || Math.abs(sx.delta) <= Math.abs(sy.delta))) {
+          w = Math.abs(sx.at - d.ax); h = w / d.ar; state.guides.push({ axis: 'x', at: sx.at });
+        } else if (sy) {
+          h = Math.abs(sy.at - d.ay); w = h * d.ar; state.guides.push({ axis: 'y', at: sy.at });
+        }
+      } else {
+        if (sx) { w = Math.abs(sx.at - d.ax); state.guides.push({ axis: 'x', at: sx.at }); }
+        if (sy) { h = Math.abs(sy.at - d.ay); state.guides.push({ axis: 'y', at: sy.at }); }
+      }
+      w = Math.max(w, MIN_SIZE); h = Math.max(h, MIN_SIZE);
+    }
+    const off = rotate(d.sx * w / 2, d.sy * h / 2, l.rot);
+    l.w = w; l.h = h; l.x = d.ax + off.x - w / 2; l.y = d.ay + off.y - h / 2;
+  }
+
+  // A finished brush stroke becomes its own layer; points are kept relative to the layer centre
+  // so the stroke moves, scales and rotates with the frame.
+  function finishStroke() {
+    const s = stroke;
+    stroke = null;
+    if (!s || s.pts.length < 2) { render(false); return; } // a single click is a dot, not nothing
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < s.pts.length; i += 2) {
+      minX = Math.min(minX, s.pts[i]); maxX = Math.max(maxX, s.pts[i]);
+      minY = Math.min(minY, s.pts[i + 1]); maxY = Math.max(maxY, s.pts[i + 1]);
+    }
+    const pad = s.width / 2 + 1;
+    const w = Math.max(MIN_SIZE, maxX - minX + pad * 2), h = Math.max(MIN_SIZE, maxY - minY + pad * 2);
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const l = newLayer({}, w, h, cx - w / 2, cy - h / 2);
+    l.kind = 'draw';
+    l.color = s.color;
+    l.lineW = s.width;
+    l.baseW = w; l.baseH = h;
+    l.pts = s.pts.map((v, i) => (i % 2 === 0 ? v - cx : v - cy));
+    state.layers.push(l);
+    state.sel = state.layers.length - 1;
+    renderLayerList();
+    render();
+  }
+
+  function endDrag(e) {
+    if (e && e.pointerType === 'touch') {
+      fingers.delete(e.pointerId);
+      if (pinch) { if (fingers.size < 2) { pinch = null; render(); } return; }
+    }
+    if (stroke) { finishStroke(); return; }
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    dragCache = null;
+    state.guides = [];
+    if (d.mode === 'scroll') { if (!d.moved && state.sel !== -1) select(-1); return; }
+    // A plain click on an empty slot opens the photo picker for it.
+    if (d.mode === 'move' && !d.moved && isSlot(d.l)) pickPhotoFor(d.l);
+    // A corner drag on a text layer changes its font size: the 字級 field has to follow.
+    if (d.mode === 'resize') syncProps();
+    render(d.mode !== 'move' || d.moved);
+  }
+  ui.addEventListener('pointerup', endDrag);
+  ui.addEventListener('pointercancel', endDrag);
+  ui.addEventListener('pointerleave', () => { if (!drag && state.hover !== -1) { state.hover = -1; render(false); } });
+
+  // Pointer capture retargets dblclick, so use geometry rather than the event target.
+  ui.addEventListener('dblclick', e => {
+    const l = selected();
+    if (!editable(l) || !inside(l, toStrip(e))) return;
+    if (l.kind === 'text') {
+      $('textProps').open = true;
+      $('textInput').focus();
+      $('textInput').select();
+    } else if (l.img) setCrop(true);
+    else if (isSlot(l)) pickPhotoFor(l);
+  });
+  ui.addEventListener('wheel', e => {
+    const l = selected();
+    if (!state.crop || !l?.img || !editable(l)) return; // locking mid-crop must stop the zoom too
+    e.preventDefault();
+    l.zoom = clamp(l.zoom * Math.exp(-e.deltaY * 0.0015), 1, 5);
+    syncProps();
+    render();
+  }, { passive: false });
+
+  // Leave crop mode when clicking anywhere outside the canvas and the photo settings.
+  document.addEventListener('pointerdown', e => {
+    if (!$('menu').contains(e.target)) $('menu').hidden = true;
+    if (state.crop && !wrap.contains(e.target) && !$('props').contains(e.target)) setCrop(false);
+  });
+
+  // ---------- toolbar, context menu, keyboard ----------
+  const actions = {
+    centerStrip: l => { l.x = (stripW() - l.w) / 2; },
+    centerSlide: l => {
+      const i = clamp(Math.floor(centre(l).x / SLIDE_W), 0, slideCount() - 1);
+      l.x = i * SLIDE_W + (SLIDE_W - l.w) / 2;
+    },
+    centerV: l => { l.y = (stripH() - l.h) / 2; },
+    fillH: l => { const c = centre(l), ar = l.w / l.h; l.h = stripH(); l.w = l.h * ar; l.y = 0; l.x = c.x - l.w / 2; },
+    top: l => { l.y += halfBox(l).hh - centre(l).y; },
+    bottom: l => { l.y += stripH() - halfBox(l).hh - centre(l).y; },
+    front: () => moveLayer(state.sel, state.layers.length),
+    up: () => { if (state.sel < state.layers.length - 1) moveLayer(state.sel, state.sel + 2); },
+    down: () => { if (state.sel > 0) moveLayer(state.sel, state.sel - 1); },
+    back: () => moveLayer(state.sel, 0),
+    lock: l => { l.locked = !l.locked; },
+    hide: l => { l.hidden = !l.hidden; },
+    // A copy is always unlocked and visible, otherwise it would be as unreachable as its original.
+    dup: l => {
+      state.layers.splice(state.sel + 1, 0,
+        { ...l, pts: l.pts ? l.pts.slice() : null, x: l.x + 40, y: l.y + 40, locked: false, hidden: false });
+      state.sel += 1;
+    },
+    remove: () => {
+      state.layers.splice(state.sel, 1);
+      // Select nothing afterwards: auto-selecting the neighbour makes a delete look like it did
+      // nothing when that neighbour is a same-named copy of the same photo.
+      state.sel = -1;
+      state.crop = false;
+    },
+  };
+  // What a locked or hidden layer still allows: unlock, show/hide, reorder and duplicate.
+  // Everything else — align, fill height, any geometry — is refused, in the toolbar, the
+  // context menu and the keyboard alike, and the matching buttons are disabled.
+  // Delete is refused only by the lock: hiding a layer is not a request to protect it.
+  const FREE_ACTS = new Set(['lock', 'hide', 'dup', 'front', 'up', 'down', 'back']);
+  const canRun = (l, name) => !!l && (FREE_ACTS.has(name) || editable(l) || (name === 'remove' && !l.locked));
+  function runAction(name) {
+    const l = selected();
+    if (!canRun(l, name)) return;
+    if (name === 'remove') commit(); // a delete needs its own undo step first
+    actions[name](l);
+    renderLayerList();
+    render();
+  }
+  document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { $('menu').hidden = true; runAction(b.dataset.act); }));
+
+  ui.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const i = topLayerAt(toStrip(e), true);
+    if (i < 0) { $('menu').hidden = true; return; }
+    select(i);
+    const m = $('menu'), l = state.layers[i];
+    m.querySelector('[data-act="lock"]').textContent = l.locked ? '解除鎖定' : '鎖定';
+    m.querySelector('[data-act="hide"]').textContent = l.hidden ? '顯示' : '隱藏';
+    m.hidden = false;
+    m.style.left = Math.min(e.clientX, innerWidth - m.offsetWidth - 8) + 'px';
+    m.style.top = Math.min(e.clientY, innerHeight - m.offsetHeight - 8) + 'px';
+  });
+
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveProjectFile(); return; }
+    const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+    // Esc leaves whatever mode is on, even with nothing selected (the brush clears the selection).
+    if (!typing && (e.key === 'Escape' || (e.key === 'Enter' && state.crop))) {
+      $('menu').hidden = true;
+      setBrush(false);
+      setCrop(false);
+      return;
+    }
+    const l = selected();
+    if (!l || typing) return;
+    if ((e.ctrlKey || e.metaKey) && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
+      const upward = e.code === 'BracketRight';
+      runAction(e.shiftKey ? (upward ? 'front' : 'back') : (upward ? 'up' : 'down'));
+      e.preventDefault();
+      return;
+    }
+    const step = e.shiftKey ? 10 : 1;
+    const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    if (moves[e.key]) { if (!editable(l)) return; l.x += moves[e.key][0]; l.y += moves[e.key][1]; }
+    else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (!canRun(l, 'remove')) return;
+      runAction('remove');
+    }
+    else return;
+    e.preventDefault();
+    render();
+  });
+
+  // ---------- export (full resolution, original photos) ----------
+  // Render the whole strip once, then slice at integer x offsets so neighbouring slides share an exact pixel boundary.
+  async function exportSlices(type) {
+    await fontsForExport();
+    const W = stripW(), H = stripH(), n = slideCount();
+    const full = makeCanvas(W, H);
+    drawScene(full.getContext('2d'), 1, true);
+    const out = makeCanvas(SLIDE_W, H);
+    const octx = out.getContext('2d');
+    const mime = type === 'png' ? 'image/png' : 'image/jpeg';
+    const blobs = [];
+    for (let i = 0; i < n; i++) {
+      octx.drawImage(full, i * SLIDE_W, 0, SLIDE_W, H, 0, 0, SLIDE_W, H);
+      blobs.push(await new Promise(res => out.toBlob(res, mime, 0.95)));
+    }
+    return { blobs, full };
+  }
+  window.__exportForTest = exportSlices;
+
+  $('export').addEventListener('click', async () => {
+    const btn = $('export');
+    btn.disabled = true; btn.textContent = '輸出中…';
+    try {
+      const type = $('quality').value;
+      const base = (state.layers.find(l => l.img)?.name || 'carousel').replace(/\.[^.]+$/, '');
+      const { blobs } = await exportSlices(type);
+      const files = await Promise.all(blobs.map(async (b, i) => ({
+        name: `${base}_${String(i + 1).padStart(2, '0')}.${type}`,
+        data: new Uint8Array(await b.arrayBuffer()),
+      })));
+      download(makeZip(files), `${base}_carousel.zip`);
+    } finally {
+      btn.disabled = false; btn.textContent = '下載全部（zip）';
+    }
+  });
+
+  function download(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+
+  // Minimal ZIP writer (stored, no compression — images are already compressed).
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(buf) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function makeZip(files) {
+    const enc = new TextEncoder();
+    const parts = [], central = [];
+    let offset = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+      const local = new DataView(new ArrayBuffer(30));
+      local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true);
+      local.setUint16(6, 0x0800, true); // UTF-8 file names
+      local.setUint32(14, crc, true); local.setUint32(18, size, true); local.setUint32(22, size, true);
+      local.setUint16(26, name.length, true);
+      parts.push(local, name, f.data);
+      const cen = new DataView(new ArrayBuffer(46));
+      cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true);
+      cen.setUint16(8, 0x0800, true);
+      cen.setUint32(16, crc, true); cen.setUint32(20, size, true); cen.setUint32(24, size, true);
+      cen.setUint16(28, name.length, true); cen.setUint32(42, offset, true);
+      central.push(cen, name);
+      offset += 30 + name.length + size;
+    }
+    const cenSize = central.reduce((s, p) => s + p.byteLength, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, cenSize, true); end.setUint32(16, offset, true);
+    return new Blob([...parts, ...central, end], { type: 'application/zip' });
+  }
+
+  // ---------- projects: save / open / autosave ----------
+  const settingsOf = () => ({
+    count: slideCount(), ratio: stripH(), bg: $('bg').value, quality: $('quality').value,
+    bgType: $('bgType').value, bg2: $('bg2').value, bgAngle: Number($('bgAngle').value),
+    bgPhoto: $('bgPhoto').value || '', bgBlur: Number($('bgBlur').value), bgDim: Number($('bgDim').value),
+  });
+  // Older project files have none of the background keys; each falls back to its default.
+  function applySettings(s) {
+    $('count').value = s.count ?? 3;
+    if ([...$('ratio').options].some(o => Number(o.value) === Number(s.ratio))) $('ratio').value = String(s.ratio);
+    lastH = stripH();
+    $('bg').value = s.bg || '#ffffff';
+    if (s.quality) $('quality').value = s.quality;
+    $('bgType').value = s.bgType || 'solid';
+    $('bg2').value = s.bg2 || '#b7c7ff';
+    $('bgAngle').value = $('bgAngleN').value = s.bgAngle ?? 90;
+    $('bgBlur').value = s.bgBlur ?? 40;
+    $('bgDim').value = s.bgDim ?? 20;
+    bgPhotoWanted = s.bgPhoto || null;
+    syncBgFields();
+  }
+  const pick = l => Object.fromEntries(LAYER_PROPS.map(k => [k, l[k]]));
+  const blobToDataUrl = blob => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsDataURL(blob);
+  });
+
+  // Replace the canvas with a project. Items are layer props plus `blob` or `dataUrl` (none = empty slot).
+  // The new layers are built in a local array first: nothing on screen changes until every photo has
+  // been decoded, so a broken file can never wipe the canvas. A single unreadable photo becomes an
+  // empty slot with a warning instead of aborting the whole open. Returns true when it swapped.
+  async function restoreProject(settings, items) {
+    const cache = new Map();
+    const next = [];
+    let missing = 0;
+    // An autosave/undo commit can land while a big project is still opening, so collection is
+    // suspended until the new layers are on the canvas below.
+    restoreDepth++;
+    try {
+      for (const it of items) {
+        let photo = null;
+        const key = it.imgId || it.dataUrl;
+        try {
+          if (key && cache.has(key)) photo = cache.get(key);
+          else if (it.blob || it.dataUrl) {
+            const blob = it.blob || await (await fetch(it.dataUrl)).blob();
+            photo = await loadPhoto(blob, it.name, it.imgId);
+            if (key && photo) cache.set(key, photo);
+          }
+        } catch (err) {
+          console.warn('photo failed', err);
+          photo = null;
+        }
+        if (!photo && (it.blob || it.dataUrl)) missing++;
+        const l = newLayer(photo ? photoFields(photo) : {}, it.w, it.h, it.x, it.y);
+        for (const k of LAYER_PROPS) if (it[k] !== undefined) l[k] = it[k];
+        next.push(l);
+      }
+    } catch (err) {
+      console.warn('open failed', err);
+      alert('這個專案檔讀不開，畫面保持原樣，目前的排版沒有被動到。');
+      return false;
+    } finally {
+      // The photos just decoded only become reachable once `next` is on the canvas, which happens
+      // synchronously below — so the collection this restore held back runs on the next microtask,
+      // never in the gap.
+      if (--restoreDepth === 0 && restorePending) queueMicrotask(releasePhotos);
+    }
+    setBrush(false);
+    state.layers = next;
+    state.sel = -1;
+    state.crop = false;
+    applySettings(settings);
+    renderLayerList();
+    render();
+    loadUsedFonts();
+    if (missing) alert(`有 ${missing} 張照片讀不到，已留成空白欄位，其他內容都在。`);
+    return true;
+  }
+
+  async function saveProjectFile() {
+    if (!state.layers.length) return;
+    const btn = $('saveProj');
+    btn.disabled = true; btn.textContent = '儲存中…';
+    try {
+      const urls = new Map();
+      for (const l of state.layers) if (l.img && !urls.has(l.imgId)) urls.set(l.imgId, await blobToDataUrl(l.blob));
+      const project = {
+        app: 'ig-seamless-carousel', version: 2, savedAt: new Date().toISOString(), ...settingsOf(),
+        layers: state.layers.map(l => l.img ? { ...pick(l), imgId: l.imgId, dataUrl: urls.get(l.imgId) } : pick(l)),
+      };
+      const stamp = new Date().toLocaleString('sv').slice(0, 16).replace(/[-: ]/g, '');
+      download(new Blob([JSON.stringify(project)], { type: 'application/json' }), `ig-carousel-${stamp}.igproj.json`);
+    } finally {
+      btn.disabled = false; btn.textContent = '儲存專案';
+    }
+  }
+
+  // Version 1 files have no background keys and no `version` field worth checking; every reader
+  // here falls back to a default, so both versions open the same way.
+  async function openProjectFile(file) {
+    let project;
+    try { project = JSON.parse(await file.text()); } catch { alert('這不是有效的專案檔。'); return; }
+    if (project?.app !== 'ig-seamless-carousel' || !Array.isArray(project.layers)) { alert('這不是本工具的專案檔。'); return; }
+    if (state.layers.length && !confirm('開啟專案會取代目前畫面上的排版，確定嗎？（可先按「儲存專案」保留目前的）')) return;
+    commit(); // one clean step: Ctrl+Z goes back to this canvas, Ctrl+Y returns to the project
+    const ok = await restoreProject(project, project.layers);
+    if (ok) commit();
+  }
+  const openProjectSafely = file => openProjectFile(file).catch(err => {
+    console.warn('open failed', err);
+    alert('開啟專案時出錯，畫面保持原樣。');
+  });
+
+  $('saveProj').addEventListener('click', saveProjectFile);
+  $('openProj').addEventListener('click', () => $('projFile').click());
+  $('projFile').addEventListener('change', e => { if (e.target.files[0]) openProjectSafely(e.target.files[0]); e.target.value = ''; });
+
+  // Autosave into this browser (IndexedDB): each photo is stored once by imgId, and every tab keeps
+  // its own `layout:<slot>` record, so two tabs open at the same time never overwrite each other.
+  // A photo is only deleted once NO layout record references it any more.
+  const DB_NAME = 'ig-seamless-carousel', STORE = 'autosave';
+  const DB_TIMEOUT = 4000;                  // a blocked or hung open must never wedge startup
+  const SLOT_TTL = 14 * 24 * 60 * 60 * 1000; // forget a tab's record after two weeks
+  const LEGACY_KEY = 'layout';              // the single record older versions wrote
+  const isLayoutKey = k => k === LEGACY_KEY || String(k).startsWith('layout:');
+  // One slot per tab: sessionStorage survives a reload but is not shared with other tabs.
+  const slotId = (() => {
+    let id = null;
+    try { id = sessionStorage.getItem('ig-carousel-slot'); } catch { /* storage blocked */ }
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).slice(0, 8);
+      try { sessionStorage.setItem('ig-carousel-slot', id); } catch { /* storage blocked */ }
+    }
+    return id;
+  })();
+  const layoutKey = LEGACY_KEY + ':' + slotId;
+
+  let dbPromise = null;
+  function db() {
+    dbPromise ||= new Promise((res, rej) => {
+      let settled = false;
+      const done = (fn, v) => { if (!settled) { settled = true; fn(v); } };
+      let req;
+      try { req = indexedDB.open(DB_NAME, 1); } catch (err) { done(rej, err); return; }
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+      req.onsuccess = () => done(res, req.result);
+      req.onerror = () => done(rej, req.error || new Error('indexedDB error'));
+      req.onblocked = () => done(rej, new Error('indexedDB blocked'));
+      setTimeout(() => done(rej, new Error('indexedDB open timed out')), DB_TIMEOUT);
+    });
+    return dbPromise;
+  }
+  const idb = (mode, fn) => db().then(d => new Promise((res, rej) => {
+    const tx = d.transaction(STORE, mode), out = fn(tx.objectStore(STORE));
+    tx.oncomplete = () => res(out?.result);
+    tx.onerror = () => rej(tx.error || new Error('transaction failed'));
+    tx.onabort = () => rej(tx.error || new Error('transaction aborted'));
+  }));
+  // Several keys in one readonly transaction, results in the order asked for. Awaiting one
+  // transaction per record costs a round trip through the event loop each time, which a restore
+  // with twenty photos would pay twenty times over.
+  function idbGetAll(keys) {
+    if (!keys.length) return Promise.resolve([]);
+    return db().then(d => new Promise((res, rej) => {
+      const tx = d.transaction(STORE, 'readonly'), st = tx.objectStore(STORE);
+      const reqs = keys.map(k => st.get(k));
+      tx.oncomplete = () => res(reqs.map(r => r.result));
+      tx.onerror = () => rej(tx.error || new Error('transaction failed'));
+      tx.onabort = () => rej(tx.error || new Error('transaction aborted'));
+    }));
+  }
+
+  let autosaveTimer = null, restoring = true, keepRestoreNote = false, autosaveOff = false;
+  const AUTOSAVE_OFF_NOTE = '自動暫存未啟用，請用『儲存專案』';
+  // Only a database that cannot be opened at all turns autosave off for the session; one failed
+  // transaction says so in the note but is retried on the next change.
+  function autosaveUnavailable(err) {
+    keepRestoreNote = false;
+    $('autosave').textContent = AUTOSAVE_OFF_NOTE;
+    if (err) console.warn('autosave unavailable', err);
+    db().catch(() => { autosaveOff = true; });
+  }
+  function scheduleAutosave() {
+    if (restoring || autosaveOff) return;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(autosave, 800);
+  }
+  async function autosave() {
+    if (autosaveOff) return;
+    if (drag) { scheduleAutosave(); return; } // never write mid-gesture
+    try {
+      const keys = await idb('readonly', s => s.getAllKeys());
+      const stored = new Set(keys.filter(k => String(k).startsWith('img:')));
+      // Photos this tab needs, plus every photo the other tabs' records still point at.
+      const keep = new Set(state.layers.filter(l => l.img).map(l => 'img:' + l.imgId));
+      const cutoff = Date.now() - SLOT_TTL;
+      const stale = [];
+      const others = keys.filter(k => isLayoutKey(k) && k !== layoutKey);
+      (await idbGetAll(others)).forEach((rec, i) => {
+        if (!rec) return;
+        if (rec.savedAt && rec.savedAt < cutoff) { stale.push(others[i]); return; }
+        for (const it of rec.layers || []) if (it.imgId) keep.add('img:' + it.imgId);
+      });
+      const mine = { savedAt: Date.now(), slot: slotId, ...settingsOf(),
+        layers: state.layers.map(l => ({ ...pick(l), imgId: l.img ? l.imgId : null })) };
+      await idb('readwrite', s => {
+        for (const l of state.layers) {
+          const key = 'img:' + l.imgId;
+          if (l.img && !stored.has(key)) { s.put(l.blob, key); stored.add(key); }
+        }
+        for (const k of stale) s.delete(k);
+        for (const k of stored) if (!keep.has(k)) s.delete(k);
+        s.put(mine, layoutKey);
+      });
+      // The first save after a restore leaves the "restored from…" note up instead of replacing it.
+      if (!keepRestoreNote) $('autosave').textContent = `已自動暫存於此瀏覽器 ${new Date().toLocaleTimeString()}`;
+      keepRestoreNote = false;
+    } catch (err) {
+      autosaveUnavailable(err);
+    }
+  }
+  // Prefers this tab's own record; otherwise the most recently saved one (including the single
+  // record older versions wrote). Photos whose blob is gone stay as empty slots.
+  async function restoreAutosave() {
+    try {
+      const keys = (await idb('readonly', s => s.getAllKeys())).filter(isLayoutKey);
+      const recs = await idbGetAll(keys);
+      let rec = null, from = '';
+      const own = keys.indexOf(layoutKey);
+      if (own >= 0) {
+        rec = recs[own];
+        from = 'own';
+      }
+      if (!rec?.layers?.length) {
+        rec = null;
+        keys.forEach((k, i) => {
+          const r = recs[i];
+          if (k === layoutKey || !r?.layers?.length) return;
+          if (!rec || (r.savedAt || 0) > (rec.savedAt || 0)) { rec = r; from = k === LEGACY_KEY ? 'legacy' : 'other'; }
+        });
+      }
+      if (!rec?.layers?.length) return;
+      const want = [...new Set(rec.layers.filter(it => it.imgId).map(it => 'img:' + it.imgId))];
+      const blobs = new Map((await idbGetAll(want)).map((b, i) => [want[i], b]));
+      const items = [];
+      let missing = 0;
+      for (const it of rec.layers) {
+        if (!it.imgId) { items.push(it); continue; }
+        const blob = blobs.get('img:' + it.imgId);
+        if (blob) items.push({ ...it, blob });
+        else { missing++; items.push({ ...it, imgId: null }); } // keep the layer as an empty slot
+      }
+      if (!await restoreProject(rec, items)) return;
+      const when = rec.savedAt ? new Date(rec.savedAt).toLocaleString() : '';
+      const where = from === 'own' ? '這個分頁上次的排版' : from === 'legacy' ? '舊版自動暫存的排版' : '最近一次自動暫存的排版（來自其他分頁）';
+      $('autosave').textContent = `已還原${where}（${when}）` +
+        (missing ? `，其中 ${missing} 張照片已遺失，留成空白欄位` : '');
+      keepRestoreNote = true;
+    } catch (err) {
+      console.warn('restore failed', err);
+      autosaveUnavailable(err);
+    }
+  }
+
+  // ---------- undo / redo ----------
+  // Snapshots of the whole layout (layer props + photo ids), taken once a change settles, so a
+  // drag, a slider scrub or a run of arrow-key nudges is one step.
+  // Each entry keeps the photo ids it needs, so a photo can only be released once no step can
+  // reach it any more (undo has to be able to bring a deleted photo back).
+  const history = { stack: [], index: -1 };
+  let commitTimer = null;
+  const snapshot = () => JSON.stringify({ ...settingsOf(),
+    layers: state.layers.map(l => ({ ...pick(l), imgId: l.img ? l.imgId : null })) });
+  const historyEntry = () => ({ s: snapshot(), ids: new Set(state.layers.filter(l => l.img).map(l => l.imgId)) });
+  function scheduleCommit() {
+    if (restoring) return;
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(commit, 350);
+  }
+  function commit() {
+    clearTimeout(commitTimer);
+    commitTimer = null;
+    if (restoring) return;
+    if (drag) { scheduleCommit(); return; }
+    const e = historyEntry();
+    if (history.stack[history.index]?.s === e.s) return;
+    history.stack.splice(history.index + 1);
+    history.stack.push(e);
+    if (history.stack.length > 200) history.stack.shift();
+    history.index = history.stack.length - 1;
+    updateUndoButtons();
+    releasePhotos();
+  }
+  function resetHistory() {
+    history.stack = [historyEntry()];
+    history.index = 0;
+    updateUndoButtons();
+    releasePhotos();
+  }
+  // Decoded photos that no layer and no undo step can reach cost memory until the page is closed.
+  function releasePhotos() {
+    // A project open in flight has decoded photos that nothing can reach yet; it runs this itself
+    // once the new layers are on the canvas.
+    if (restoreDepth) { restorePending = true; return; }
+    restorePending = false;
+    const live = new Set();
+    for (const l of state.layers) if (l.imgId) live.add(l.imgId);
+    for (const h of history.stack) for (const id of (h && h.ids) || []) live.add(id);
+    if (bgPhotoWanted) live.add(bgPhotoWanted);
+    const bg = $('bgPhoto').value;
+    if (bg) live.add(bg);
+    for (const [id, p] of photoRegistry) {
+      if (live.has(id)) continue;
+      try { URL.revokeObjectURL(p.url); } catch { /* already revoked */ }
+      try { p.bmp?.close?.(); } catch { /* not an ImageBitmap */ }
+      photoRegistry.delete(id);
+    }
+  }
+  function applySnapshot(s) {
+    const d = JSON.parse(s);
+    setBrush(false);
+    applySettings(d);
+    state.layers = d.layers.map(it => {
+      const p = it.imgId ? photoRegistry.get(it.imgId) : null;
+      const l = newLayer(p ? photoFields(p) : {}, it.w, it.h, it.x, it.y);
+      for (const k of LAYER_PROPS) if (it[k] !== undefined) l[k] = it[k];
+      return l;
+    });
+    state.sel = Math.min(state.sel, state.layers.length - 1);
+    state.crop = false;
+    renderLayerList();
+    render();
+    loadUsedFonts();
+  }
+  function undo() {
+    if (commitTimer) commit(); // an unsettled change becomes its own step first
+    if (history.index <= 0) return;
+    applySnapshot(history.stack[--history.index].s);
+    updateUndoButtons();
+  }
+  function redo() {
+    if (commitTimer) commit();
+    if (history.index >= history.stack.length - 1) return;
+    applySnapshot(history.stack[++history.index].s);
+    updateUndoButtons();
+  }
+  function updateUndoButtons() {
+    $('undo').disabled = history.index <= 0;
+    $('redo').disabled = history.index >= history.stack.length - 1;
+  }
+  $('undo').addEventListener('click', undo);
+  $('redo').addEventListener('click', redo);
+  document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k !== 'z' && k !== 'y') return;
+    const a = document.activeElement;
+    if (a && (a.type === 'number' || a.type === 'text' || a.tagName === 'TEXTAREA')) return; // native field undo
+    e.preventDefault();
+    if (k === 'y' || e.shiftKey) redo(); else undo();
+  });
+
+  renderLayerList();
+  restoreAutosave().finally(() => { restoring = false; resetHistory(); });
+})();
+</script>
+<script>
+// ---------- UI shell: theme, mobile tabs, sticky stage (no app logic lives here) ----------
+(() => {
+  const $ = id => document.getElementById(id);
+  const mobile = matchMedia('(max-width: 900px)');
+
+  // Theme: auto → light → dark, remembered per browser.
+  const root = document.documentElement;
+  let theme = '';
+  try { theme = localStorage.getItem('igc-theme') || ''; } catch (_) {}
+  const applyTheme = () => {
+    if (theme) root.setAttribute('data-theme', theme); else root.removeAttribute('data-theme');
+    const dark = theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    $('themeBtn').title = theme ? (theme === 'dark' ? '深色（點一下回到跟隨系統）' : '淺色（點一下切換深色）') : '跟隨系統（點一下切換淺色）';
+    $('themeBtn').setAttribute('aria-pressed', String(dark));
+  };
+  applyTheme();
+  $('themeBtn').addEventListener('click', () => {
+    theme = theme === '' ? 'light' : theme === 'light' ? 'dark' : '';
+    try { theme ? localStorage.setItem('igc-theme', theme) : localStorage.removeItem('igc-theme'); } catch (_) {}
+    applyTheme();
+  });
+
+  // Mobile tabs: the sidebar cards carry data-group; the bottom bar shows one group at a time.
+  const tabs = [...document.querySelectorAll('.tabbar [data-tab]')];
+  const groups = [...document.querySelectorAll('.side .group')];
+  let current = 'layout', previous = 'layout';
+  function show(tab, remember = true) {
+    if (remember && tab !== current) previous = current;
+    current = tab;
+    groups.forEach(g => g.classList.toggle('active', g.dataset.group === tab));
+    tabs.forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    if (mobile.matches) {
+      // Keep the sticky stage in view and start the new tab from its top.
+      const side = document.querySelector('.side');
+      const top = side.getBoundingClientRect().top + scrollY - stageBottom() - 8;
+      if (scrollY > top) scrollTo({ top, behavior: 'auto' });
+    }
+  }
+  tabs.forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
+
+  // A layer got selected → its properties live in the 編輯 tab; deselect → go back.
+  const props = $('props'), editTab = tabs.find(b => b.dataset.tab === 'edit');
+  new MutationObserver(() => {
+    const has = !props.hidden;
+    editTab.classList.toggle('has', has);
+    if (has && current !== 'edit') show('edit');
+    else if (!has && current === 'edit') show(previous, false);
+  }).observe(props, { attributes: true, attributeFilter: ['hidden'] });
+
+  // Phones: the stage goes first and sticks under the app bar, the previews drop below the controls.
+  // (Moving the node keeps its canvases and observers; only its place in the flow changes.)
+  const main = document.querySelector('.main'), shell = document.querySelector('.shell'), previews = document.querySelector('.previews'), wrap = $('wrap');
+  const stageBottom = () => main.getBoundingClientRect().bottom;
+  const place = () => {
+    if (mobile.matches) { if (previews.parentNode !== shell) shell.appendChild(previews); }
+    else if (previews.parentNode !== main) main.appendChild(previews);
+    sizeStage();
+  };
+  // Stick only while the strip is short enough to leave room for the controls underneath.
+  const sizeStage = () => main.classList.toggle('tall', mobile.matches && wrap.getBoundingClientRect().height > innerHeight * 0.45);
+  new ResizeObserver(sizeStage).observe(wrap);
+  mobile.addEventListener('change', place);
+  place();
+
+  // Export button lives in the app bar; nudge the 畫布 tab's info when it becomes available.
+  const exp = $('export');
+  new MutationObserver(() => exp.classList.toggle('ready', !exp.disabled)).observe(exp, { attributes: true, attributeFilter: ['disabled'] });
+})();
+</script>
+</body>
+</html>
