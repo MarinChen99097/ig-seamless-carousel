@@ -794,8 +794,8 @@
         </div>
         <div class="stage-wrap" id="wrap">
           <div class="stage-inner" id="stageInner">
-            <canvas id="stage"></canvas>
-            <canvas id="ui"></canvas>
+            <canvas id="stage" role="img" aria-label="輪播排版預覽"></canvas>
+            <canvas id="ui" aria-label="編輯操作區：拖曳移動、拉角縮放、旋轉圖層；鍵盤請用左側面板"></canvas>
           </div>
         </div>
       </div>
@@ -1925,6 +1925,7 @@
     $('info').innerHTML = `輸出：${n} 張 × ${SLIDE_W}×${H}，整條 ${W}×${H}` +
       (empty ? `<br><span class="warn">還有 ${empty} 個空白欄位（輸出時會是背景色）。</span>` : '') +
       (blurry.length ? `<br><span class="warn">${blurry.map(l => l.name).join('、')} 被放大超過原始解析度，可能會糊。</span>` : '');
+    $('stage').setAttribute('aria-label', `輪播排版預覽：${n} 張，${state.layers.length} 個圖層`);
     syncStageZoom();
     syncOffNote();
   }
