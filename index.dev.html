@@ -219,6 +219,9 @@
     details { interpolate-size: allow-keywords; }
     details::details-content { block-size: 0; overflow-y: clip; opacity: 0; transition: block-size var(--t-panel) var(--ease-out), content-visibility var(--t-panel) allow-discrete, opacity var(--t-panel) var(--ease-out); }
     details[open]::details-content { block-size: auto; opacity: 1; }
+    /* The clip above cuts at the content's top edge, and overflow-clip-margin does nothing while
+       only one axis clips (Chromium), so give the first field room for its focus ring instead. */
+    .props > summary + .field { padding-top: 4px; }
   }
   @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.99); } to { opacity: 1; transform: none; } }
   details.section.props:not([hidden]) { animation: pop var(--t-pop) var(--ease-out) backwards; }
