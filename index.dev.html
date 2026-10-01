@@ -137,6 +137,11 @@
     transition: border-color var(--t-fast), box-shadow var(--t-fast);
   }
   select:focus, input[type=number]:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  /* Keyboard focus still gets the same ring as buttons; the rule above would otherwise remove it. */
+  select:focus-visible, input[type=number]:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Browsers also match :focus-visible when a text field is clicked; keep the plain mouse look there
+     (.pointer-focus is set on pointerdown and cleared by Tab, see the UI shell script). */
+  .pointer-focus :is(select, input[type=number], textarea):focus-visible { outline: none; }
   select { appearance: none; -webkit-appearance: none; padding-right: 30px;
     background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
     background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
@@ -3774,9 +3779,13 @@
 (() => {
   const $ = id => document.getElementById(id);
   const mobile = matchMedia('(max-width: 900px)');
+  const root = document.documentElement;
+
+  // Focus ring for fields: shown when focus arrives by keyboard, not after a click (see .pointer-focus).
+  addEventListener('pointerdown', () => root.classList.add('pointer-focus'), true);
+  addEventListener('keydown', e => { if (e.key === 'Tab') root.classList.remove('pointer-focus'); }, true);
 
   // Theme: auto → light → dark, remembered per browser.
-  const root = document.documentElement;
   let theme = '';
   try { theme = localStorage.getItem('igc-theme') || ''; } catch (_) {}
   const applyTheme = () => {
