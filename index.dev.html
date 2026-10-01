@@ -1979,9 +1979,12 @@
   // Damped spring (~2% overshoot) as a function of progress 0..1, matching the CSS --spring token.
   const springAt = t => { const z = 0.78, w = 11, wd = w * Math.sqrt(1 - z * z);
     return t >= 1 ? 1 : 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + z * w / wd * Math.sin(wd * t)); };
-  function markEnter(l, delay = 0) { if (l && !reduceMotion()) l._in = { t0: performance.now(), delay }; }
+  // A hidden layer is never drawn, so motionOf() would never run for it and its motion would never
+  // clear — keeping render() looping forever, which keeps re-deferring autosave, undo and previews.
+  // So hidden layers never start a motion, never count as moving, and drop any motion when hidden.
+  function markEnter(l, delay = 0) { if (l && !l.hidden && !reduceMotion()) l._in = { t0: performance.now(), delay }; }
   function markGlide(l, from) {
-    if (reduceMotion()) return;
+    if (l.hidden || reduceMotion()) return;
     const sx = from.w / l.w, sy = from.h / l.h;
     if (!(Math.abs(sx - sy) < 0.01)) return; // a non-uniform squash would distort the picture mid-glide
     const dx = from.x + from.w / 2 - (l.x + l.w / 2), dy = from.y + from.h / 2 - (l.y + l.h / 2);
@@ -2013,8 +2016,9 @@
     if (m.s !== 1) c.scale(m.s, m.s);
     return m.a;
   }
-  const inMotion = () => state.layers.some(l => l._in || l._g);
-  function stopMotion() { for (const l of state.layers) { l._in = null; l._g = null; } }
+  const inMotion = () => state.layers.some(l => !l.hidden && (l._in || l._g));
+  const dropMotion = l => { l._in = null; l._g = null; };
+  function stopMotion() { state.layers.forEach(dropMotion); }
 
   // Layer list: the rows are rebuilt on every change, so motion is worked out by matching rows to
   // their layer — rows that moved slide from where they were (FLIP), new rows ease in. Only a
@@ -2094,6 +2098,7 @@
         b.addEventListener('click', ev => {
           ev.stopPropagation();
           l[prop] = !l[prop];
+          if (l.hidden) dropMotion(l); // see markEnter: a hidden layer must not keep the loop alive
           if (state.crop && !editable(selected())) setCrop(false); // locking the layer ends its crop
           renderLayerList();
           render();
@@ -3202,11 +3207,11 @@
     down: () => { if (state.sel > 0) moveLayer(state.sel, state.sel - 1); },
     back: () => moveLayer(state.sel, 0),
     lock: l => { l.locked = !l.locked; },
-    hide: l => { l.hidden = !l.hidden; },
+    hide: l => { l.hidden = !l.hidden; if (l.hidden) dropMotion(l); },
     // A copy is always unlocked and visible, otherwise it would be as unreachable as its original.
     dup: l => {
       state.layers.splice(state.sel + 1, 0,
-        { ...l, pts: l.pts ? l.pts.slice() : null, x: l.x + 40, y: l.y + 40, locked: false, hidden: false });
+        { ...l, pts: l.pts ? l.pts.slice() : null, x: l.x + 40, y: l.y + 40, locked: false, hidden: false, _in: null, _g: null });
       state.sel += 1;
       markEnter(state.layers[state.sel]);
     },
