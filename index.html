@@ -19,6 +19,14 @@
     --radius: 14px; --radius-sm: 9px;
     --ease: cubic-bezier(.2, .7, .2, 1);
     --t-fast: 140ms; --t: 220ms; --t-slow: 420ms;
+    /* Motion: entrances decelerate, exits accelerate and are shorter; springs settle with a
+       small overshoot so things land instead of stopping dead. Fallbacks for browsers without
+       linear() are plain decelerating curves. */
+    --ease-out: cubic-bezier(.22, 1, .36, 1);
+    --ease-in: cubic-bezier(.4, 0, 1, 1);
+    --spring: var(--ease-out);
+    --spring-pop: cubic-bezier(.34, 1.4, .64, 1);
+    --t-press: 90ms; --t-leave: 130ms; --t-enter: 200ms; --t-pop: 320ms; --t-panel: 360ms; --t-card: 520ms;
     --appbar: 56px; --tabbar: 60px;
     color-scheme: light;
   }
@@ -41,6 +49,14 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -12px rgba(0, 0, 0, .6);
     --shadow-lg: 0 18px 48px -16px rgba(0, 0, 0, .7);
     color-scheme: dark;
+  }
+
+  @supports (transition-timing-function: linear(0, 1)) {
+    :root {
+      /* damped springs sampled into linear(): ~2% overshoot for panels, ~5% for small pops */
+      --spring: linear(0, 0.0628, 0.204, 0.371, 0.533, 0.674, 0.787, 0.873, 0.934, 0.975, 0.999, 1.01, 1.02, 1.02, 1.02, 1.02, 1.01, 1.01, 1.01, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
+      --spring-pop: linear(0, 0.0983, 0.306, 0.531, 0.726, 0.871, 0.965, 1.02, 1.04, 1.05, 1.04, 1.03, 1.02, 1.01, 1, 1, 0.999, 0.998, 0.998, 0.998, 0.999, 0.999, 1, 1, 1);
+    }
   }
 
   /* ---------- base ---------- */
@@ -85,12 +101,22 @@
     padding: 8px 12px; min-height: 36px; border: 1px solid var(--line-2); border-radius: var(--radius-sm);
     font-size: 13px; cursor: pointer; background: var(--panel); color: var(--text);
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
-      color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), opacity var(--t-fast);
+    /* resting state = the way back: colour leaves quickly, the press releases on a spring */
+    transition: background var(--t-leave) var(--ease-in), border-color var(--t-leave) var(--ease-in),
+      color var(--t-leave) var(--ease-in), box-shadow var(--t-leave) var(--ease-in), opacity var(--t-leave),
+      transform var(--t-pop) var(--spring-pop), filter var(--t-leave);
     -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none;
   }
-  @media (hover: hover) { button:hover:not(:disabled) { background: var(--hover); border-color: var(--line-2); } }
-  button:active:not(:disabled) { transform: scale(.965); }
+  @media (hover: hover) {
+    button:hover:not(:disabled) {
+      background: var(--hover); border-color: var(--line-2);
+      transition: background var(--t-enter) var(--ease-out), border-color var(--t-enter) var(--ease-out),
+        color var(--t-enter) var(--ease-out), box-shadow var(--t-enter) var(--ease-out), opacity var(--t-leave),
+        transform var(--t-pop) var(--spring-pop), filter var(--t-enter);
+    }
+  }
+  /* pressing is instant-ish so the button feels attached to the finger */
+  button:active:not(:disabled) { transform: scale(.955); transition-duration: var(--t-press); transition-timing-function: var(--ease-out); }
   button:disabled { opacity: .38; cursor: not-allowed; }
   button.primary { border-color: transparent; font-weight: 600; color: var(--accent-text); background: var(--accent); box-shadow: 0 6px 16px -8px var(--accent); }
   @media (hover: hover) { button.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.06); } }
@@ -111,6 +137,11 @@
     transition: border-color var(--t-fast), box-shadow var(--t-fast);
   }
   select:focus, input[type=number]:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  /* Keyboard focus still gets the same ring as buttons; the rule above would otherwise remove it. */
+  select:focus-visible, input[type=number]:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Browsers also match :focus-visible when a text field is clicked; keep the plain mouse look there
+     (.pointer-focus is set on pointerdown and cleared by Tab, see the UI shell script). */
+  .pointer-focus :is(select, input[type=number], textarea):focus-visible { outline: none; }
   select { appearance: none; -webkit-appearance: none; padding-right: 30px;
     background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
     background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
@@ -124,7 +155,7 @@
   input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--line-2); }
   input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line-2); }
   input[type=range]::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%;
-    background: var(--panel); border: 2px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform var(--t-fast) var(--ease); }
+    background: var(--panel); border: 2px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform var(--t-pop) var(--spring-pop); }
   input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--panel); border: 2px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.2); }
   input[type=range]:active::-webkit-slider-thumb { transform: scale(1.2); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -158,8 +189,8 @@
 
   /* entrance (once) */
   @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-  .appbar { animation: rise var(--t-slow) var(--ease) backwards; }
-  .side > .card, .main > * { animation: rise var(--t-slow) var(--ease) backwards; }
+  .appbar { animation: rise var(--t-card) var(--ease-out) backwards; }
+  .side > .card, .main > * { animation: rise var(--t-card) var(--ease-out) backwards; }
   .side > .card:nth-child(2) { animation-delay: 50ms; } .side > .card:nth-child(3) { animation-delay: 100ms; }
   .side > .card:nth-child(4) { animation-delay: 150ms; } .side > .card:nth-child(n+5) { animation-delay: 200ms; }
   .main > *:nth-child(2) { animation-delay: 80ms; }
@@ -175,29 +206,32 @@
   details.section > summary::-webkit-details-marker { display: none; }
   details.section > summary::after {
     content: ''; margin-left: auto; width: 8px; height: 8px; border-right: 1.8px solid var(--muted); border-bottom: 1.8px solid var(--muted);
-    transform: rotate(-45deg); transition: transform var(--t) var(--ease); flex: none;
+    transform: rotate(-45deg); transition: transform var(--t-pop) var(--spring); flex: none;
   }
   details.section[open] > summary::after { transform: rotate(45deg); }
   details.section > summary + * { margin-top: 2px; }
   details.sub { margin-top: 10px; }
   details.sub > summary { cursor: pointer; font-size: 12px; color: var(--muted); list-style: none; padding: 6px 0; display: flex; align-items: center; }
   details.sub > summary::-webkit-details-marker { display: none; }
-  details.sub > summary::after { content: ''; margin-left: auto; width: 6px; height: 6px; border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted); transform: rotate(-45deg); transition: transform var(--t) var(--ease); }
+  details.sub > summary::after { content: ''; margin-left: auto; width: 6px; height: 6px; border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted); transform: rotate(-45deg); transition: transform var(--t-pop) var(--spring); }
   details.sub[open] > summary::after { transform: rotate(45deg); }
   @supports (interpolate-size: allow-keywords) {
     details { interpolate-size: allow-keywords; }
-    details::details-content { block-size: 0; overflow-y: clip; opacity: 0; transition: block-size var(--t) var(--ease), content-visibility var(--t) allow-discrete, opacity var(--t) var(--ease); }
+    details::details-content { block-size: 0; overflow-y: clip; opacity: 0; transition: block-size var(--t-panel) var(--ease-out), content-visibility var(--t-panel) allow-discrete, opacity var(--t-panel) var(--ease-out); }
     details[open]::details-content { block-size: auto; opacity: 1; }
+    /* The clip above cuts at the content's top edge, and overflow-clip-margin does nothing while
+       only one axis clips (Chromium), so give the first field room for its focus ring instead. */
+    .props > summary + .field { padding-top: 4px; }
   }
   @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.99); } to { opacity: 1; transform: none; } }
-  details.section.props:not([hidden]) { animation: pop var(--t-slow) var(--ease) backwards; }
+  details.section.props:not([hidden]) { animation: pop var(--t-pop) var(--ease-out) backwards; }
 
   /* ---------- drop zone ---------- */
   .drop {
     border: 1.5px dashed var(--line-2); border-radius: var(--radius); padding: 18px 12px; text-align: center;
     color: var(--muted); cursor: pointer; font-size: 13px; background: var(--panel-2);
     display: flex; flex-direction: column; align-items: center; gap: 8px;
-    transition: border-color var(--t), background var(--t), color var(--t), transform var(--t) var(--ease);
+    transition: border-color var(--t), background var(--t), color var(--t), transform var(--t-pop) var(--spring);
   }
   .drop .ic { width: 26px; height: 26px; color: var(--accent); stroke-width: 1.6; }
   .drop b { color: var(--text); font-weight: 600; }
@@ -239,7 +273,7 @@
   .tgroup button { width: 32px; min-height: 30px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--text); }
   .tgroup button .ic { width: 17px; height: 17px; }
   .tgroup button:disabled { opacity: .3; }
-  .sel-only { animation: pop var(--t) var(--ease) backwards; }
+  .sel-only { animation: pop var(--t-pop) var(--ease-out) backwards; }
   body:has(#props[hidden]) .sel-only { display: none; }
   .thint { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   body:not(:has(#props[hidden])) .thint { display: none; }
@@ -249,7 +283,7 @@
   .zoombar #stageZoomNote { min-width: 56px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
   .zoombar button { padding: 5px 10px; min-height: 30px; font-size: 12px; white-space: nowrap; }
   .offnote { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 12px;
-    border: 1px solid var(--warn); background: var(--warn-soft); border-radius: var(--radius-sm); font-size: 13px; color: var(--warn); animation: pop var(--t) var(--ease) backwards; }
+    border: 1px solid var(--warn); background: var(--warn-soft); border-radius: var(--radius-sm); font-size: 13px; color: var(--warn); animation: pop var(--t-pop) var(--spring) backwards; }
   .offnote button { min-height: 30px; padding: 4px 10px; font-size: 12px; color: inherit; border-color: currentColor; background: transparent; }
   .stage-wrap { position: relative; border-radius: 10px; overflow-x: auto; overflow-y: hidden; background: #0b0b0d;
     touch-action: none; user-select: none; -webkit-user-select: none; outline: 3px solid transparent; outline-offset: -3px; transition: outline-color var(--t); }
@@ -257,7 +291,7 @@
   .stage-inner { position: relative; width: 100%; }
   #stage, #ui { display: block; width: 100%; }
   #ui { position: absolute; inset: 0; height: 100%; }
-  #editor:not([hidden]) { animation: pop var(--t-slow) var(--ease) backwards; }
+  #editor:not([hidden]) { animation: pop var(--t-card) var(--ease-out) backwards; }
 
   /* empty state */
   .empty-state { padding: 48px 16px 40px; text-align: center; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 14px; }
@@ -283,7 +317,7 @@
   .swipe::-webkit-scrollbar { display: none; }
   .swipe canvas { flex: 0 0 100%; width: 100%; display: block; scroll-snap-align: start; outline: 1px solid var(--line); outline-offset: -1px; }
   .dots { display: flex; justify-content: center; gap: 5px; padding: 10px; }
-  .dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--line-2); transition: width var(--t) var(--ease), background var(--t); }
+  .dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--line-2); transition: width var(--t-pop) var(--spring), background var(--t); }
   .dots i.on { background: var(--accent); width: 16px; }
   .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
   .thumbs figure { margin: 0; }
@@ -297,7 +331,7 @@
   /* ---------- context menu ---------- */
   .menu { position: fixed; z-index: 40; min-width: 160px; padding: 5px; border-radius: 12px;
     background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-lg);
-    display: flex; flex-direction: column; transform-origin: top left; animation: menu var(--t-fast) var(--ease) backwards; }
+    display: flex; flex-direction: column; transform-origin: top left; animation: menu var(--t-enter) var(--ease-out) backwards; }
   @keyframes menu { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
   .menu button { border: 0; text-align: left; justify-content: flex-start; padding: 8px 10px; min-height: 36px; border-radius: 8px; background: transparent; }
   .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
@@ -312,13 +346,20 @@
     margin-bottom: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow);
   }
   .tabbar button { flex-direction: row; gap: 6px; padding: 6px 0; min-height: 38px; border: 0; background: transparent; font-size: 12px; color: var(--muted); border-radius: 9px; position: relative; }
-  .tabbar button .ic { width: 17px; height: 17px; transition: transform var(--t) var(--ease); }
-  .tabbar button.on { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .tabbar button .ic { width: 17px; height: 17px; transition: transform var(--t-pop) var(--spring-pop); }
+  .tabbar button.on { color: var(--accent); font-weight: 600; }
+  @media (hover: hover) { .tabbar button.on:hover:not(:disabled) { background: transparent; } }
+  .tabbar button { z-index: 1; }
+  /* One highlight that travels between tabs (sized and placed by JS from the active button). */
+  .tab-pill { position: absolute; left: 0; top: 0; width: 0; height: 0; border-radius: 9px; background: var(--accent-soft);
+    pointer-events: none; transition: transform var(--t-panel) var(--spring); }
   .tabbar button:active { transform: scale(.97); }
-  .tabbar button .badge { position: absolute; top: 6px; right: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0; transform: scale(.4); transition: opacity var(--t), transform var(--t) var(--ease); }
+  .tabbar button .badge { position: absolute; top: 6px; right: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0; transform: scale(.4); transition: opacity var(--t-enter), transform var(--t-pop) var(--spring-pop); }
   .tabbar button.has .badge { opacity: 1; transform: none; }
   .side .group:not(.active) { display: none; }
-  .side .group.active { animation: pop var(--t) var(--ease) backwards; }
+  /* The panel arrives from the side of the tab you moved toward (--dx is set by JS). */
+  .side .group.active { animation: tab-in var(--t-panel) var(--ease-out) backwards; }
+  @keyframes tab-in { from { opacity: 0; transform: translateX(var(--dx, 0px)); } to { opacity: 1; transform: none; } }
   .edit-empty { display: none; padding: 22px 8px; text-align: center; color: var(--muted); font-size: 13px; }
   .group-edit:not(:has(details:not([hidden]))) .edit-empty { display: block; }
   .stage-card { min-height: calc(100dvh - var(--appbar) - 36px); display: flex; flex-direction: column; }
@@ -356,6 +397,7 @@
     .tabbar button .ic { width: 20px; height: 20px; }
     .tabbar button.on .ic { transform: translateY(-1px) scale(1.08); }
     .tabbar button:active { transform: none; }
+    .tab-pill { border-radius: 10px; }
     .tabbar button .badge { top: 4px; right: calc(50% - 18px); width: 7px; height: 7px; }
     .stage-card { min-height: 0; }
     .templates { grid-template-columns: repeat(3, 1fr); }
@@ -368,6 +410,26 @@
     .side > .card, .main > * { animation: none; }
   }
   @media (max-width: 420px) { .templates { grid-template-columns: 1fr 1fr; } .emoji { grid-template-columns: repeat(8, 1fr); } }
+
+  /* App-bar buttons: busy swaps the icon for a spinner, done draws a check; the label (hidden on
+     phones) says the same in words. */
+  .appbar button .state-ic { display: none; }
+  .appbar button.busy > svg.ic:not(.state-ic), .appbar button.done > svg.ic:not(.state-ic) { display: none; }
+  .appbar button.busy:disabled { opacity: 1; cursor: progress; }
+  .appbar button.busy::before { content: ''; width: 16px; height: 16px; flex: none; border-radius: 50%;
+    border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; }
+  .appbar button.done .state-ic { display: block; animation: pop var(--t-pop) var(--spring-pop) backwards; }
+  .appbar button.done .state-ic path { stroke-dasharray: 22; stroke-dashoffset: 22; animation: draw 380ms var(--ease-out) 80ms forwards; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  /* one soft glow, the first time export becomes possible */
+  #export { position: relative; }
+  #export.ready::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    box-shadow: 0 0 0 3px var(--accent); animation: ready-ring 1.2s var(--ease-out) 1 both; }
+  @keyframes ready-ring { from { opacity: .55; transform: scale(1); } to { opacity: 0; transform: scale(1.35, 1.6); } }
+
+  /* theme switch: the script clips the new snapshot open from the button, no default cross-fade */
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
@@ -396,6 +458,7 @@
 <div class="shell">
   <aside class="side">
 <nav class="tabbar" aria-label="功能分頁">
+    <span class="tab-pill" aria-hidden="true"></span>
     <button data-tab="layout" class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="2"/><rect x="14" y="3" width="7" height="8" rx="2"/><rect x="14" y="15" width="7" height="6" rx="2"/></svg>版型</button>
     <button data-tab="canvas"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M9 4v16"/></svg>畫布</button>
     <button data-tab="layers"><svg class="ic" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>圖層</button>
@@ -664,7 +727,7 @@
       </details>
     </section>
 
-    <section class="card group group-layout tips" data-group="layout">
+    <section class="card group group-layout tips active" data-group="layout">
       <details class="section">
       <summary>操作提示</summary>
       <p>拖曳移動；四角等比縮放、四邊中點改框的寬高；上方圓點旋轉（<kbd>Shift</kbd> 每 15°）。靠近中心／切割線／邊緣會吸附，<kbd>Alt</kbd> 暫停吸附。</p>
@@ -734,8 +797,8 @@
         </div>
         <div class="stage-wrap" id="wrap">
           <div class="stage-inner" id="stageInner">
-            <canvas id="stage"></canvas>
-            <canvas id="ui"></canvas>
+            <canvas id="stage" role="img" aria-label="輪播排版預覽"></canvas>
+            <canvas id="ui" role="group" aria-label="編輯操作區：拖曳移動、拉角縮放、旋轉圖層；鍵盤請用左側面板"></canvas>
           </div>
         </div>
       </div>
@@ -1342,8 +1405,9 @@
     const ctr = centre(l);
     c.save();
     c.translate(ctr.x, ctr.y);
+    const ma = full ? 1 : applyMotion(c, l); // editor view only — the export never animates
     c.rotate(rad(l.rot));
-    c.globalAlpha = l.opacity / 100;
+    c.globalAlpha = l.opacity / 100 * ma;
     if (l.kind === 'text') {
       if (hasShadow(l)) applyShadow(c, l, s);
       drawText(c, l);
@@ -1583,8 +1647,9 @@
     if (sceneChanged) sceneDirty = true;
     if (rafPending) return;
     rafPending = true;
-    requestAnimationFrame(() => {
+    requestAnimationFrame(now => {
       rafPending = false;
+      frameNow = now;
       sizeCanvases();
       if (sceneDirty) {
         const cached = drag && dragCache && dragCache.l === drag.l && dragCache.w === view.width && dragCache.h === view.height;
@@ -1600,6 +1665,7 @@
         sceneDirty = false;
       }
       drawUI();
+      if (inMotion()) render(true); // keep drawing until every enter/glide has settled
     });
   }
 
@@ -1635,8 +1701,8 @@
       const ctr = centre(l);
       c.save();
       c.translate(ctr.x, ctr.y);
+      c.globalAlpha = applyMotion(c, l);
       c.rotate(rad(l.rot));
-      c.globalAlpha = 1;
       drawPlaceholder(c, l, k);
       c.restore();
     }
@@ -1674,6 +1740,7 @@
     const ctr = centre(l);
     c.save();
     c.translate(ctr.x, ctr.y);
+    c.globalAlpha = applyMotion(c, l); // the selection travels and fades with its layer
     c.rotate(rad(l.rot));
     if (!editable(l)) {
       // Locked or hidden layers show where they are but offer no handles.
@@ -1861,6 +1928,7 @@
     $('info').innerHTML = `輸出：${n} 張 × ${SLIDE_W}×${H}，整條 ${W}×${H}` +
       (empty ? `<br><span class="warn">還有 ${empty} 個空白欄位（輸出時會是背景色）。</span>` : '') +
       (blurry.length ? `<br><span class="warn">${blurry.map(l => l.name).join('、')} 被放大超過原始解析度，可能會糊。</span>` : '');
+    $('stage').setAttribute('aria-label', `輪播排版預覽：${n} 張，${state.layers.length} 個圖層`);
     syncStageZoom();
     syncOffNote();
   }
@@ -1887,7 +1955,9 @@
     for (const l of state.layers.filter(offCanvas)) {
       const c = centre(l), { hw, hh } = halfBox(l);
       const nx = hw * 2 >= W ? W / 2 : clamp(c.x, hw, W - hw), ny = hh * 2 >= H ? H / 2 : clamp(c.y, hh, H - hh);
+      const from = { x: l.x, y: l.y, w: l.w, h: l.h };
       l.x += nx - c.x; l.y += ny - c.y;
+      markGlide(l, from); // slides in from where it was hiding
     }
     renderLayerList();
     render();
@@ -1898,6 +1968,94 @@
     renderLayerList();
     render();
   });
+
+  // ---------- motion helpers ----------
+  // Everything here is presentation only. Reduced motion turns all of it off; the curves come
+  // from the CSS tokens so CSS and script motion feel the same.
+  const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cssToken = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const HAS_LINEAR = CSS.supports('transition-timing-function', 'linear(0, 1)');
+  const EASE_OUT_CSS = 'cubic-bezier(.22, 1, .36, 1)', EASE_IN_CSS = 'cubic-bezier(.4, 0, 1, 1)';
+  let springCss = null;
+  const SPRING_CSS = () => springCss || (springCss = HAS_LINEAR ? cssToken('--spring') || EASE_OUT_CSS : EASE_OUT_CSS);
+
+  // Canvas: a layer can carry transient, never-saved `_in` (fade and settle in after being added)
+  // and `_g` (glide from where a toolbar action moved it). Both only change how the editor view
+  // draws it — x/y/w/h are already final — so undo, autosave, hit-testing and export never see an
+  // in-between value. Anything that starts a direct manipulation calls stopMotion() first.
+  const ENTER_MS = 440, GLIDE_MS = 420;
+  let frameNow = 0;
+  // Damped spring (~2% overshoot) as a function of progress 0..1, matching the CSS --spring token.
+  const springAt = t => { const z = 0.78, w = 11, wd = w * Math.sqrt(1 - z * z);
+    return t >= 1 ? 1 : 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + z * w / wd * Math.sin(wd * t)); };
+  // A hidden layer is never drawn, so motionOf() would never run for it and its motion would never
+  // clear — keeping render() looping forever, which keeps re-deferring autosave, undo and previews.
+  // So hidden layers never start a motion, never count as moving, and drop any motion when hidden.
+  function markEnter(l, delay = 0) { if (l && !l.hidden && !reduceMotion()) l._in = { t0: performance.now(), delay }; }
+  function markGlide(l, from) {
+    if (l.hidden || reduceMotion()) return;
+    const sx = from.w / l.w, sy = from.h / l.h;
+    if (!(Math.abs(sx - sy) < 0.01)) return; // a non-uniform squash would distort the picture mid-glide
+    const dx = from.x + from.w / 2 - (l.x + l.w / 2), dy = from.y + from.h / 2 - (l.y + l.h / 2);
+    if (Math.hypot(dx, dy) < 0.5 && Math.abs(sx - 1) < 0.002) return;
+    l._g = { t0: performance.now(), dx, dy, s: sx };
+  }
+  // This frame's display offset for a layer, or null. Finished motions clear themselves.
+  function motionOf(l) {
+    if (!l._in && !l._g) return null;
+    let dx = 0, dy = 0, s = 1, a = 1;
+    if (l._g) {
+      const p = (frameNow - l._g.t0) / GLIDE_MS;
+      if (p >= 1) l._g = null;
+      else { const r = 1 - springAt(Math.max(0, p)); dx = l._g.dx * r; dy = l._g.dy * r; s = 1 + (l._g.s - 1) * r; }
+    }
+    if (l._in) {
+      const p = (frameNow - l._in.t0 - l._in.delay) / ENTER_MS;
+      if (p >= 1) l._in = null;
+      else if (p <= 0) a = 0;
+      else { a = Math.min(1, p * 1.7); s *= 0.94 + 0.06 * springAt(p); }
+    }
+    return { dx, dy, s, a };
+  }
+  // Applies the offset inside the layer's centred, unrotated frame; returns the alpha factor.
+  function applyMotion(c, l) {
+    const m = motionOf(l);
+    if (!m) return 1;
+    if (m.dx || m.dy) c.translate(m.dx, m.dy);
+    if (m.s !== 1) c.scale(m.s, m.s);
+    return m.a;
+  }
+  const inMotion = () => state.layers.some(l => !l.hidden && (l._in || l._g));
+  const dropMotion = l => { l._in = null; l._g = null; };
+  function stopMotion() { state.layers.forEach(dropMotion); }
+
+  // Layer list: the rows are rebuilt on every change, so motion is worked out by matching rows to
+  // their layer — rows that moved slide from where they were (FLIP), new rows ease in. Only a
+  // visible list animates (selecting a layer switches to the 編輯 tab, so in practice this is
+  // drag-reordering). When most rows are "new" (undo, opening a project) the list was replaced
+  // rather than edited, and it switches without motion.
+  function rowTops(ul) {
+    if (reduceMotion() || !ul.offsetParent) return null;
+    const m = new Map();
+    for (const li of ul.children) if (li.__layer) m.set(li.__layer, li.getBoundingClientRect().top);
+    return m;
+  }
+  function animateRows(ul, before) {
+    if (!before || !before.size || !ul.offsetParent) return;
+    const rows = [...ul.children];
+    if (rows.filter(li => !before.has(li.__layer)).length > Math.max(2, before.size / 2)) return;
+    let k = 0;
+    for (const li of rows) {
+      const top = before.get(li.__layer);
+      if (top === undefined) {
+        li.animate([{ opacity: 0, transform: 'translateY(-8px) scale(.97)' }, { opacity: 1, transform: 'none' }],
+          { duration: 300, easing: EASE_OUT_CSS, delay: 45 * k++, fill: 'backwards' });
+        continue;
+      }
+      const dy = top - li.getBoundingClientRect().top;
+      if (Math.abs(dy) > 0.5) li.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 380, easing: SPRING_CSS() });
+    }
+  }
 
   // ---------- side panel ----------
   let listDrag = null;
@@ -1916,10 +2074,12 @@
   }
   function renderLayerList() {
     const ul = $('layers');
+    const before = rowTops(ul);
     ul.innerHTML = '';
     for (let i = state.layers.length - 1; i >= 0; i--) {
       const l = state.layers[i];
       const li = document.createElement('li');
+      li.__layer = l;
       li.className = i === state.sel ? 'sel' : '';
       li.draggable = true;
       li.classList.toggle('off', !!l.hidden);
@@ -1947,6 +2107,7 @@
         b.addEventListener('click', ev => {
           ev.stopPropagation();
           l[prop] = !l[prop];
+          if (l.hidden) dropMotion(l); // see markEnter: a hidden layer must not keep the loop alive
           if (state.crop && !editable(selected())) setCrop(false); // locking the layer ends its crop
           renderLayerList();
           render();
@@ -1973,6 +2134,7 @@
       li.addEventListener('dragend', () => { listDrag = null; renderLayerList(); });
       ul.appendChild(li);
     }
+    animateRows(ul, before);
     const has = state.layers.length > 0;
     $('emptyState').hidden = has;
     const wasHidden = $('editor').hidden;
@@ -2327,6 +2489,7 @@
     const s = textBoxSize(l);
     l.w = s.w; l.h = s.h;
     l.x = (SLIDE_W - l.w) / 2; l.y = (H - l.h) / 2;
+    markEnter(l);
     state.layers.push(l);
     state.sel = state.layers.length - 1;
     state.crop = false;
@@ -2363,6 +2526,7 @@
     const H = stripH(), h = H * 0.6, w = kind === 'block' ? SLIDE_W * 0.8 : h * 0.8;
     const l = newLayer({}, w, h, (SLIDE_W - w) / 2, (H - h) / 2);
     l.kind = kind;
+    markEnter(l);
     setBrush(false);
     state.layers.push(l);
     state.sel = state.layers.length - 1;
@@ -2477,10 +2641,12 @@
       const slot = state.layers.find(l => isSlot(l) && editable(l));
       if (slot) {
         Object.assign(slot, photoFields(photo), { zoom: 1, px: 0, py: 0 });
+        markEnter(slot);
         state.sel = state.layers.indexOf(slot);
       } else {
         const p = defaultPlacement(photo.img);
         state.layers.push(newLayer(photoFields(photo), p.w, p.h, p.x, p.y));
+        markEnter(state.layers.at(-1));
         state.sel = state.layers.length - 1;
       }
       state.crop = false;
@@ -2495,6 +2661,7 @@
     const photo = await loadPhoto(file, file.name);
     if (!photo) return;
     Object.assign(l, photoFields(photo), { zoom: 1, px: 0, py: 0 });
+    markEnter(l);
     state.sel = state.layers.indexOf(l);
     setBrush(false);
     renderLayerList();
@@ -2637,6 +2804,7 @@
     lastH = stripH();
     if (t.bg) $('bg').value = t.bg;
     const slots = templateLayers(t, stripH(), 0, photos);
+    slots.forEach((l, i) => markEnter(l, i * 60)); // slots arrive one after another
     const used = slots.filter(l => l.img).length;
     state.layers = [...slots, ...photos.slice(used), ...others];
     state.sel = -1;
@@ -2653,7 +2821,9 @@
     commit();
     setBrush(false);
     $('count').value = offset + t.count;
-    state.layers.push(...templateLayers(t, stripH(), offset, []));
+    const added = templateLayers(t, stripH(), offset, []);
+    added.forEach((l, i) => markEnter(l, i * 60));
+    state.layers.push(...added);
     state.sel = -1;
     state.crop = false;
     renderLayerList();
@@ -2803,6 +2973,7 @@
   ui.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     $('menu').hidden = true;
+    stopMotion(); // what you grab must be exactly where it is drawn
     if (e.pointerType === 'touch') {
       fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       ui.setPointerCapture(e.pointerId);
@@ -3045,12 +3216,13 @@
     down: () => { if (state.sel > 0) moveLayer(state.sel, state.sel - 1); },
     back: () => moveLayer(state.sel, 0),
     lock: l => { l.locked = !l.locked; },
-    hide: l => { l.hidden = !l.hidden; },
+    hide: l => { l.hidden = !l.hidden; if (l.hidden) dropMotion(l); },
     // A copy is always unlocked and visible, otherwise it would be as unreachable as its original.
     dup: l => {
       state.layers.splice(state.sel + 1, 0,
-        { ...l, pts: l.pts ? l.pts.slice() : null, x: l.x + 40, y: l.y + 40, locked: false, hidden: false });
+        { ...l, pts: l.pts ? l.pts.slice() : null, x: l.x + 40, y: l.y + 40, locked: false, hidden: false, _in: null, _g: null });
       state.sel += 1;
+      markEnter(state.layers[state.sel]);
     },
     remove: () => {
       state.layers.splice(state.sel, 1);
@@ -3066,11 +3238,15 @@
   // Delete is refused only by the lock: hiding a layer is not a request to protect it.
   const FREE_ACTS = new Set(['lock', 'hide', 'dup', 'front', 'up', 'down', 'back']);
   const canRun = (l, name) => !!l && (FREE_ACTS.has(name) || editable(l) || (name === 'remove' && !l.locked));
+  // Alignment moves glide to their new place instead of teleporting (display only; see motionOf).
+  const GLIDE_ACTS = new Set(['centerStrip', 'centerSlide', 'centerV', 'fillH', 'top', 'bottom']);
   function runAction(name) {
     const l = selected();
     if (!canRun(l, name)) return;
     if (name === 'remove') commit(); // a delete needs its own undo step first
+    const from = GLIDE_ACTS.has(name) ? { x: l.x, y: l.y, w: l.w, h: l.h } : null;
     actions[name](l);
+    if (from) markGlide(l, from);
     renderLayerList();
     render();
   }
@@ -3138,9 +3314,33 @@
   }
   window.__exportForTest = exportSlices;
 
+  // Busy and done states for the app-bar buttons. Only the label text and a class change — the
+  // button keeps its own icon (replacing textContent used to wipe the icon out).
+  const CHECK_SVG = '<svg class="ic state-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  for (const id of ['export', 'saveProj']) $(id).querySelector('svg.ic')?.insertAdjacentHTML('afterend', CHECK_SVG);
+  function setBusy(btn, text) {
+    const lbl = btn.querySelector('.lbl');
+    if (lbl) { btn.dataset.label ??= lbl.textContent; lbl.textContent = text; }
+    clearTimeout(btn.__doneTimer);
+    btn.classList.remove('done');
+    btn.classList.add('busy');
+    btn.disabled = true;
+  }
+  function setDone(btn, text, ok) {
+    const lbl = btn.querySelector('.lbl');
+    btn.classList.remove('busy');
+    btn.disabled = false;
+    const reset = () => { btn.classList.remove('done'); if (lbl) lbl.textContent = btn.dataset.label; };
+    if (!ok) { reset(); return; }
+    if (lbl) lbl.textContent = text;
+    btn.classList.add('done');
+    btn.__doneTimer = setTimeout(reset, 1600);
+  }
+
   $('export').addEventListener('click', async () => {
     const btn = $('export');
-    btn.disabled = true; btn.textContent = '輸出中…';
+    setBusy(btn, '輸出中…');
+    let ok = false;
     try {
       const type = $('quality').value;
       const base = (state.layers.find(l => l.img)?.name || 'carousel').replace(/\.[^.]+$/, '');
@@ -3150,8 +3350,9 @@
         data: new Uint8Array(await b.arrayBuffer()),
       })));
       download(makeZip(files), `${base}_carousel.zip`);
+      ok = true;
     } finally {
-      btn.disabled = false; btn.textContent = '下載全部（zip）';
+      setDone(btn, '已下載', ok);
     }
   });
 
@@ -3291,7 +3492,8 @@
   async function saveProjectFile() {
     if (!state.layers.length) return;
     const btn = $('saveProj');
-    btn.disabled = true; btn.textContent = '儲存中…';
+    setBusy(btn, '儲存中…');
+    let ok = false;
     try {
       const urls = new Map();
       for (const l of state.layers) if (l.img && !urls.has(l.imgId)) urls.set(l.imgId, await blobToDataUrl(l.blob));
@@ -3301,8 +3503,9 @@
       };
       const stamp = new Date().toLocaleString('sv').slice(0, 16).replace(/[-: ]/g, '');
       download(new Blob([JSON.stringify(project)], { type: 'application/json' }), `ig-carousel-${stamp}.igproj.json`);
+      ok = true;
     } finally {
-      btn.disabled = false; btn.textContent = '儲存專案';
+      setDone(btn, '已儲存', ok);
     }
   }
 
@@ -3580,9 +3783,13 @@
 (() => {
   const $ = id => document.getElementById(id);
   const mobile = matchMedia('(max-width: 900px)');
+  const root = document.documentElement;
+
+  // Focus ring for fields: shown when focus arrives by keyboard, not after a click (see .pointer-focus).
+  addEventListener('pointerdown', () => root.classList.add('pointer-focus'), true);
+  addEventListener('keydown', e => { if (e.key === 'Tab') root.classList.remove('pointer-focus'); }, true);
 
   // Theme: auto → light → dark, remembered per browser.
-  const root = document.documentElement;
   let theme = '';
   try { theme = localStorage.getItem('igc-theme') || ''; } catch (_) {}
   const applyTheme = () => {
@@ -3595,18 +3802,48 @@
   $('themeBtn').addEventListener('click', () => {
     theme = theme === '' ? 'light' : theme === 'light' ? 'dark' : '';
     try { theme ? localStorage.setItem('igc-theme', theme) : localStorage.removeItem('igc-theme'); } catch (_) {}
-    applyTheme();
+    // The new theme spreads out from the button as a circle; without View Transitions or with
+    // reduced motion it simply switches.
+    if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) { applyTheme(); return; }
+    const r = $('themeBtn').getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    document.startViewTransition(applyTheme).ready.then(() => {
+      root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] },
+        { duration: 600, easing: 'cubic-bezier(.22, 1, .36, 1)', pseudoElement: '::view-transition-new(root)' });
+    }).catch(() => {});
   });
 
   // Mobile tabs: the sidebar cards carry data-group; the bottom bar shows one group at a time.
   const tabs = [...document.querySelectorAll('.tabbar [data-tab]')];
   const groups = [...document.querySelectorAll('.side .group')];
   let current = 'layout', previous = 'layout';
+  const pill = document.querySelector('.tab-pill');
+  // Size and place the highlight from the active button. Only the move animates; a resize jumps.
+  function placePill(animate) {
+    const b = tabs.find(x => x.dataset.tab === current);
+    if (!b || !pill) return;
+    if (!animate) pill.style.transition = 'none';
+    pill.style.width = b.offsetWidth + 'px';
+    pill.style.height = b.offsetHeight + 'px';
+    pill.style.transform = `translate(${b.offsetLeft}px, ${b.offsetTop}px)`;
+    if (!animate) { void pill.offsetWidth; pill.style.transition = ''; }
+  }
+  const order = t => tabs.findIndex(b => b.dataset.tab === t);
   function show(tab, remember = true) {
-    if (remember && tab !== current) previous = current;
-    current = tab;
-    groups.forEach(g => g.classList.toggle('active', g.dataset.group === tab));
-    tabs.forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    if (tab !== current) {
+      if (remember) previous = current;
+      // Moving right slides the new panel in from the right, and vice versa.
+      const dir = Math.sign(order(tab) - order(current));
+      current = tab;
+      groups.forEach(g => {
+        const on = g.dataset.group === tab;
+        if (on) g.style.setProperty('--dx', `${dir * 18}px`);
+        g.classList.toggle('active', on);
+      });
+      tabs.forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+      placePill(true);
+    }
     if (mobile.matches) {
       // Keep the sticky stage in view and start the new tab from its top.
       const side = document.querySelector('.side');
@@ -3615,6 +3852,8 @@
     }
   }
   tabs.forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
+  new ResizeObserver(() => placePill(false)).observe(document.querySelector('.tabbar'));
+  placePill(false);
 
   // A layer got selected → its properties live in the 編輯 tab; deselect → go back.
   const props = $('props'), editTab = tabs.find(b => b.dataset.tab === 'edit');
@@ -3642,7 +3881,14 @@
 
   // Export button lives in the app bar; nudge the 畫布 tab's info when it becomes available.
   const exp = $('export');
-  new MutationObserver(() => exp.classList.toggle('ready', !exp.disabled)).observe(exp, { attributes: true, attributeFilter: ['disabled'] });
+  // The first time there is something to export, the button glows once to point at the next step.
+  let pointed = false;
+  new MutationObserver(() => {
+    if (pointed || exp.disabled) return;
+    pointed = true;
+    exp.classList.add('ready');
+    exp.addEventListener('animationend', () => exp.classList.remove('ready'), { once: true });
+  }).observe(exp, { attributes: true, attributeFilter: ['disabled'] });
 })();
 </script>
 </body>
