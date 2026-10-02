@@ -749,7 +749,7 @@
     <section class="card group group-layout tips active" data-group="layout">
       <details class="section">
       <summary>操作提示</summary>
-      <p>拖曳移動；四角等比縮放、四邊中點改框的寬高；上方圓點旋轉（<kbd>Shift</kbd> 每 15°）。靠近中心／切割線／邊緣會吸附，<kbd>Alt</kbd> 暫停吸附。</p>
+      <p>拖曳移動；四角等比縮放、四邊中點改框的寬高；框上方的圓點旋轉（貼著畫布上緣時在下方；<kbd>Shift</kbd> 每 15°）。靠近中心／切割線／邊緣會吸附，<kbd>Alt</kbd> 暫停吸附。</p>
       <p>雙擊照片裁切、雙擊文字改字。文字用四角縮放會直接改字級。鎖住的圖層在畫布上點不到，要從圖層清單選。</p>
       <p>方向鍵微調（<kbd>Shift</kbd> 10px），<kbd>Delete</kbd> 刪除，右鍵調圖層順序，<kbd>Ctrl</kbd>+<kbd>S</kbd> 儲存。</p>
       </details>
@@ -1967,7 +1967,7 @@
     c.strokeStyle = '#4f8cff';
     c.strokeRect(-l.w / 2, -l.h / 2, l.w, l.h);
     const ry = rotHandleY(l);
-    c.beginPath(); c.moveTo(0, ry > 0 ? -l.h / 2 : -l.h / 2); c.lineTo(0, ry); c.lineWidth = 1.5 * k; c.stroke();
+    c.beginPath(); c.moveTo(0, ry > l.h / 2 ? l.h / 2 : -l.h / 2); c.lineTo(0, ry); c.lineWidth = 1.5 * k; c.stroke();
     const hs = HANDLE_PX * k;
     c.fillStyle = '#fff';
     c.lineWidth = 1.5 * k;
@@ -1995,13 +1995,17 @@
     if (l.shape !== 'circle' && l.kind !== 'text') h.push([0, -1], [0, 1], [-1, 0], [1, 0]);
     return h;
   };
-  // Rotate handle sits above the frame; if that would fall outside the strip, it goes just inside.
+  // Rotate handle sits above the frame. A layer pushed against the top of the strip (靠上) has no
+  // room there, so the handle goes the same distance below the frame instead. Only when neither
+  // side is on the strip does it go inside, and then no deeper than the top quarter of the frame:
+  // a fixed 28 CSS px from the top edge would land in the middle of a short text box at low zoom,
+  // where grabbing the box to move it would rotate it instead.
   function rotHandleY(l) {
-    const k = cssToStrip();
-    let y = -l.h / 2 - ROT_HANDLE_PX * k;
-    const wy = centre(l).y + rotate(0, y, l.rot).y;
-    if (wy < 0 || wy > stripH()) y = -l.h / 2 + ROT_HANDLE_PX * k;
-    return y;
+    const off = ROT_HANDLE_PX * cssToStrip();
+    const onStrip = y => { const wy = centre(l).y + rotate(0, y, l.rot).y; return wy >= 0 && wy <= stripH(); };
+    if (onStrip(-l.h / 2 - off)) return -l.h / 2 - off;
+    if (onStrip(l.h / 2 + off)) return l.h / 2 + off;
+    return -l.h / 2 + Math.min(off, l.h * 0.25);
   }
 
   // ---------- IG preview: copies pixels from the editor view, no image encoding ----------
