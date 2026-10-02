@@ -187,6 +187,9 @@
     position: sticky; top: calc(var(--appbar) + 18px); align-self: start;
     max-height: calc(100dvh - var(--appbar) - 36px); overflow-y: auto; overscroll-behavior: contain;
     scrollbar-width: thin; padding-right: 2px;
+    /* Reserve the scrollbar's room even when a tab is short enough not to scroll, so switching
+       tabs never changes the tab bar's width (which used to make the highlight jump). */
+    scrollbar-gutter: stable;
   }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; box-shadow: var(--shadow); }
   .side .card { margin-bottom: 12px; }
@@ -4214,10 +4217,13 @@
   const groups = [...document.querySelectorAll('.side .group')];
   let current = 'layout', previous = 'layout';
   const pill = document.querySelector('.tab-pill');
-  // Size and place the highlight from the active button. Only the move animates; a resize jumps.
+  // Size and place the highlight from the active button. Only the move animates; a resize jumps,
+  // unless it lands while the highlight is still moving: then it re-aims the running move, so a
+  // layout change mid-move (a scrollbar coming or going) bends the path instead of snapping it.
   function placePill(animate) {
     const b = tabs.find(x => x.dataset.tab === current);
     if (!b || !pill) return;
+    if (!animate && pill.getAnimations().some(a => a.playState === 'running')) animate = true;
     if (!animate) pill.style.transition = 'none';
     pill.style.width = b.offsetWidth + 'px';
     pill.style.height = b.offsetHeight + 'px';
