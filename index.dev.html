@@ -92,7 +92,8 @@
     display: grid; place-items: center; color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
   }
   .logo svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .brand h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: .01em; white-space: nowrap; }
+  .brand h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand > div { min-width: 0; } /* on a phone the title gives way to the buttons instead of running under them */
   .brand small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; margin-top: -2px; white-space: nowrap; }
   .appbar .actions { display: flex; align-items: center; gap: 6px; }
 
@@ -419,6 +420,7 @@
   .appbar button.busy::before { content: ''; width: 16px; height: 16px; flex: none; border-radius: 50%;
     border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; }
   .appbar button.done .state-ic { display: block; animation: pop var(--t-pop) var(--spring-pop) backwards; }
+  .appbar button.retry .lbl { display: inline; white-space: nowrap; } /* "tap again" must be readable even where labels are icon-only */
   .appbar button.done .state-ic path { stroke-dasharray: 22; stroke-dashoffset: 22; animation: draw 380ms var(--ease-out) 80ms forwards; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes draw { to { stroke-dashoffset: 0; } }
@@ -451,6 +453,7 @@
     <button id="openProj" class="ghost" title="開啟專案檔（.igproj.json）"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">開啟專案</span></button>
     <button id="saveProj" class="ghost" title="Ctrl+S"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3"/><path d="M8 21v-6h8v6"/></svg><span class="lbl">儲存專案</span></button>
     <input type="file" id="projFile" accept=".json,application/json" hidden>
+    <button id="shareOut" class="ghost" hidden disabled title="分享到照片或 Instagram"><svg class="ic" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 11v9h14v-9"/></svg><span class="lbl">分享圖片</span></button>
     <button id="export" class="primary" disabled title="下載全部（zip）"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v3h16v-3"/></svg><span class="lbl">下載全部</span></button>
   </div>
 </header>
@@ -1787,10 +1790,11 @@
   });
 
   let rafPending = false, sceneDirty = true, previewTimer = 0;
+  let sceneRev = 0; // bumps on every scene change, so prepared share files can tell they are stale
   function schedulePreviews() { clearTimeout(previewTimer); previewTimer = setTimeout(drawPreviews, 120); }
   // `sceneChanged=false` only redraws the selection/guide layer (hover, guides) — much cheaper.
   function render(sceneChanged = true) {
-    if (sceneChanged) sceneDirty = true;
+    if (sceneChanged) { sceneDirty = true; sceneRev++; }
     if (rafPending) return;
     rafPending = true;
     requestAnimationFrame(now => {
@@ -2287,6 +2291,7 @@
     $('editor').hidden = !has;
     if (wasHidden && has) fitW = 0; // the wrapper had no width while the editor was hidden
     $('export').disabled = !state.layers.some(l => l.img || l.kind === 'text' || l.kind === 'draw' || isBlock(l));
+    if (!$('shareOut').classList.contains('busy')) $('shareOut').disabled = $('export').disabled;
     document.querySelectorAll('[data-act]').forEach(b => { b.disabled = !canRun(selected(), b.dataset.act); });
     syncBgPhotoOptions();
     syncProps();
@@ -3463,7 +3468,7 @@
   // Busy and done states for the app-bar buttons. Only the label text and a class change — the
   // button keeps its own icon (replacing textContent used to wipe the icon out).
   const CHECK_SVG = '<svg class="ic state-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
-  for (const id of ['export', 'saveProj']) $(id).querySelector('svg.ic')?.insertAdjacentHTML('afterend', CHECK_SVG);
+  for (const id of ['export', 'shareOut', 'saveProj']) $(id).querySelector('svg.ic')?.insertAdjacentHTML('afterend', CHECK_SVG);
   function setBusy(btn, text) {
     const lbl = btn.querySelector('.lbl');
     if (lbl) { btn.dataset.label ??= lbl.textContent; lbl.textContent = text; }
@@ -3483,22 +3488,67 @@
     btn.__doneTimer = setTimeout(reset, 1600);
   }
 
+  // One naming scheme for the zip entries and the shared files: <first photo>_01.jpg …
+  const exportBase = () => (state.layers.find(l => l.img)?.name || 'carousel').replace(/\.[^.]+$/, '');
+  const sliceName = (base, i, type) => `${base}_${String(i + 1).padStart(2, '0')}.${type}`;
+
   $('export').addEventListener('click', async () => {
     const btn = $('export');
     setBusy(btn, '輸出中…');
     let ok = false;
     try {
       const type = $('quality').value;
-      const base = (state.layers.find(l => l.img)?.name || 'carousel').replace(/\.[^.]+$/, '');
+      const base = exportBase();
       const { blobs } = await exportSlices(type);
       const files = await Promise.all(blobs.map(async (b, i) => ({
-        name: `${base}_${String(i + 1).padStart(2, '0')}.${type}`,
+        name: sliceName(base, i, type),
         data: new Uint8Array(await b.arrayBuffer()),
       })));
       download(makeZip(files), `${base}_carousel.zip`);
       ok = true;
     } finally {
       setDone(btn, '已下載', ok);
+    }
+  });
+
+  // iPhone: a zip lands in Files, where Photos and Instagram cannot see it. The share sheet takes
+  // the slices as images instead (Save Image, Instagram…). Shown only where the browser says it
+  // can share image files, which leaves it hidden on most desktop browsers.
+  const CAN_SHARE_FILES = (() => {
+    try {
+      return typeof navigator.share === 'function' && typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [new File([new Blob(['x'])], 'x.png', { type: 'image/png' })] }) === true;
+    } catch { return false; }
+  })();
+  $('shareOut').hidden = !CAN_SHARE_FILES;
+  // The share sheet may only open shortly after a tap. If rendering the slides took longer, the
+  // browser refuses with NotAllowedError; the files are then kept, and the next tap shares them
+  // straight away as long as nothing in the scene or the format changed.
+  let readyShare = null;
+  $('shareOut').addEventListener('click', async () => {
+    const btn = $('shareOut');
+    const type = $('quality').value;
+    let files = readyShare && readyShare.rev === sceneRev && readyShare.type === type ? readyShare.files : null;
+    const rev = files ? readyShare.rev : sceneRev;
+    readyShare = null;
+    btn.classList.remove('retry');
+    setBusy(btn, '準備中…');
+    let ok = false, retry = false;
+    try {
+      if (!files) {
+        const base = exportBase();
+        const { blobs } = await exportSlices(type);
+        const mime = type === 'png' ? 'image/png' : 'image/jpeg';
+        files = blobs.map((b, i) => new File([b], sliceName(base, i, type), { type: mime }));
+      }
+      await navigator.share({ files, title: '輪播圖片' });
+      ok = true;
+    } catch (e) {
+      if (e?.name === 'NotAllowedError') { readyShare = { files, rev, type }; retry = true; }
+      else if (e?.name !== 'AbortError') alert('分享失敗，請改用「下載全部」。');
+    } finally {
+      setDone(btn, '已分享', ok);
+      if (retry) { btn.classList.add('retry'); btn.querySelector('.lbl').textContent = '再按一次'; }
     }
   });
 
