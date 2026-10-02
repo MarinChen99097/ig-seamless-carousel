@@ -2750,6 +2750,89 @@
       pts: null, baseW: 0, baseH: 0 };
   }
 
+  // ---------- untrusted layer data ----------
+  // Project files, autosave records and undo snapshots all pass through sanitizeLayer and
+  // sanitizeSettings before anything reaches the canvas, the DOM or element.style: colours must be
+  // hex, the font must be in the catalogue, enums must be known values, numbers finite and inside
+  // the range of the control that edits them, and text is text. Anything else gets the default.
+  const LAYER_DEFAULTS = newLayer({}, MIN_SIZE, MIN_SIZE, 0, 0);
+  const HEX_RE = /^#[0-9a-f]{3,8}$/i;
+  const hexOr = (v, d) => (typeof v === 'string' && HEX_RE.test(v) ? v : d);
+  const COLOUR_PROPS = new Set(['fill', 'borderColor', 'shadowColor', 'color', 'strokeColor', 'textBg']);
+  const BOOL_PROPS = new Set(['locked', 'hidden', 'flipH', 'flipV', 'bold', 'italic', 'vertical', 'textBgOn']);
+  const ENUM_PROPS = {
+    kind: new Set(['photo', 'block', 'text', 'draw']),
+    shape: new Set(['rect', 'rounded', 'ellipse', 'circle', 'triangle', 'star', 'heart', 'bubble', 'line', 'arrow']),
+    align: new Set(['left', 'center', 'right']),
+  };
+  // [min, max] of the slider or field that edits each number. Strip-pixel values are also rescaled
+  // when the ratio changes (see STRIP_PX_PROPS), so their range is widened by the largest possible
+  // ratio step, 1920 / 566. Geometry has no control and is only kept finite and sane.
+  const RATIO_SPAN = 1920 / 566;
+  const NUM_RANGES = {
+    x: [-1e5, 1e5], y: [-1e5, 1e5], w: [0.01, 1e5], h: [0.01, 1e5], baseW: [0, 1e5], baseH: [0, 1e5],
+    rot: [-180, 180], radius: [0, 100], border: [0, 80], opacity: [10, 100], zoom: [1, 5], px: [-1, 1], py: [-1, 1],
+    shadowBlur: [0, 120], shadowX: [-2000, 2000], shadowY: [-2000, 2000], lineW: [1, 120],
+    bright: [20, 200], contrast: [20, 200], satur: [0, 250], warmth: [-100, 100], fade: [0, 100], blurPx: [0, 120],
+    fontSize: [8, 2000], lineHeight: [0.8, 3], letterSpacing: [-20, 120], strokeWidth: [0, 60], textBgPad: [0, 200],
+  };
+  const FRAME_PROPS = new Set(['x', 'y', 'w', 'h']);
+  for (const k of STRIP_PX_PROPS) {
+    if (!FRAME_PROPS.has(k)) {
+      const [lo, hi] = NUM_RANGES[k];
+      NUM_RANGES[k] = [lo < 0 ? lo * RATIO_SPAN : lo / RATIO_SPAN, hi * RATIO_SPAN];
+    }
+  }
+  const toNum = v => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN);
+  function cleanNum(k, v, d) {
+    let n = toNum(v);
+    if (!Number.isFinite(n)) return d;
+    if (k === 'rot' && Math.abs(n) > 180) n = ((n + 180) % 360 + 360) % 360 - 180; // same angle
+    const [lo, hi] = NUM_RANGES[k];
+    return clamp(n, lo, hi);
+  }
+  const cleanId = v => (typeof v === 'string' && /^[\w-]{1,100}$/.test(v) ? v : null);
+  // Returns the props `it` actually carries (plus the frame, always), each one validated.
+  function sanitizeLayer(it) {
+    const src = it && typeof it === 'object' ? it : {};
+    const out = {};
+    for (const k of LAYER_PROPS) {
+      const v = src[k], d = LAYER_DEFAULTS[k];
+      if (v === undefined && !FRAME_PROPS.has(k)) continue;
+      if (k in NUM_RANGES) out[k] = cleanNum(k, v, d);
+      else if (COLOUR_PROPS.has(k)) out[k] = hexOr(v, d);
+      else if (BOOL_PROPS.has(k)) out[k] = v === true;
+      else if (k in ENUM_PROPS) out[k] = ENUM_PROPS[k].has(v) ? v : d;
+      else if (k === 'font') out[k] = typeof v === 'string' && FONT_BY.has(v) ? v : d;
+      else if (k === 'text') out[k] = String(v ?? '');
+      else if (k === 'name') out[k] = String(v ?? '').slice(0, 300);
+      else if (k === 'pts') {
+        const ok = Array.isArray(v) && v.length % 2 === 0 && v.every(n => typeof n === 'number' && Number.isFinite(n));
+        out[k] = ok ? v.slice() : null;
+      }
+    }
+    return out;
+  }
+  const RATIOS = new Set([1350, 1080, 1440, 1920, 566]);
+  // `ids` = the photo ids that actually exist; the blurred background may only point at one of them.
+  // Missing ratio / quality keep the current choice (older files lack them), everything else defaults.
+  function sanitizeSettings(s, ids) {
+    const src = s && typeof s === 'object' ? s : {};
+    const num = (v, lo, hi, d) => { const n = toNum(v); return Number.isFinite(n) ? clamp(n, lo, hi) : d; };
+    return {
+      count: Math.round(num(src.count, 1, 20, 3)),
+      ratio: RATIOS.has(toNum(src.ratio)) ? toNum(src.ratio) : null,
+      bg: hexOr(src.bg, '#ffffff'),
+      quality: src.quality === 'jpg' || src.quality === 'png' ? src.quality : null,
+      bgType: ['solid', 'gradient', 'photo'].includes(src.bgType) ? src.bgType : 'solid',
+      bg2: hexOr(src.bg2, '#b7c7ff'),
+      bgAngle: num(src.bgAngle, 0, 360, 90),
+      bgPhoto: typeof src.bgPhoto === 'string' && ids.has(src.bgPhoto) ? src.bgPhoto : '',
+      bgBlur: num(src.bgBlur, 0, 200, 40),
+      bgDim: num(src.bgDim, 0, 90, 20),
+    };
+  }
+
   // Decode once; also build a smaller bitmap so editing never resamples the full-size original.
   async function loadPhoto(blob, name, imgId) {
     const url = URL.createObjectURL(blob);
@@ -3620,18 +3703,19 @@
     bgType: $('bgType').value, bg2: $('bg2').value, bgAngle: Number($('bgAngle').value),
     bgPhoto: $('bgPhoto').value || '', bgBlur: Number($('bgBlur').value), bgDim: Number($('bgDim').value),
   });
-  // Older project files have none of the background keys; each falls back to its default.
+  // Takes the output of sanitizeSettings. Older project files have none of the background keys;
+  // each falls back to its default there.
   function applySettings(s) {
-    $('count').value = s.count ?? 3;
-    if ([...$('ratio').options].some(o => Number(o.value) === Number(s.ratio))) $('ratio').value = String(s.ratio);
+    $('count').value = s.count;
+    if (s.ratio) $('ratio').value = String(s.ratio);
     lastH = stripH();
-    $('bg').value = s.bg || '#ffffff';
+    $('bg').value = s.bg;
     if (s.quality) $('quality').value = s.quality;
-    $('bgType').value = s.bgType || 'solid';
-    $('bg2').value = s.bg2 || '#b7c7ff';
-    $('bgAngle').value = $('bgAngleN').value = s.bgAngle ?? 90;
-    $('bgBlur').value = s.bgBlur ?? 40;
-    $('bgDim').value = s.bgDim ?? 20;
+    $('bgType').value = s.bgType;
+    $('bg2').value = s.bg2;
+    $('bgAngle').value = $('bgAngleN').value = s.bgAngle;
+    $('bgBlur').value = s.bgBlur;
+    $('bgDim').value = s.bgDim;
     bgPhotoWanted = s.bgPhoto || null;
     syncBgFields();
   }
@@ -3667,15 +3751,17 @@
     // suspended until the new layers are on the canvas below.
     restoreDepth++;
     try {
-      for (const it of items) {
+      for (const raw of items) {
+        const it = raw && typeof raw === 'object' ? raw : {};
+        const props = sanitizeLayer(it), imgId = cleanId(it.imgId);
         let photo = null;
-        const key = it.imgId || it.dataUrl;
+        const key = imgId || it.dataUrl;
         try {
           if (key && cache.has(key)) photo = cache.get(key);
           else if (it.blob || it.dataUrl) {
             // Only a real Blob (autosave) or a validated data: URL; anything else stays an empty slot.
             const blob = it.blob instanceof Blob ? it.blob : it.blob ? null : dataUrlToBlob(it.dataUrl);
-            if (blob) photo = await loadPhoto(blob, it.name, it.imgId);
+            if (blob) photo = await loadPhoto(blob, props.name ?? '', imgId);
             if (key && photo) cache.set(key, photo);
           }
         } catch (err) {
@@ -3683,8 +3769,8 @@
           photo = null;
         }
         if (!photo && (it.blob || it.dataUrl)) missing++;
-        const l = newLayer(photo ? photoFields(photo) : {}, it.w, it.h, it.x, it.y);
-        for (const k of LAYER_PROPS) if (it[k] !== undefined) l[k] = it[k];
+        const l = newLayer(photo ? photoFields(photo) : {}, props.w, props.h, props.x, props.y);
+        Object.assign(l, props);
         next.push(l);
       }
     } catch (err) {
@@ -3701,7 +3787,7 @@
     state.layers = next;
     state.sel = -1;
     state.crop = false;
-    applySettings(settings);
+    applySettings(sanitizeSettings(settings, new Set(next.filter(l => l.img).map(l => l.imgId))));
     renderLayerList();
     render();
     loadUsedFonts();
@@ -3953,12 +4039,12 @@
   function applySnapshot(s) {
     const d = JSON.parse(s);
     setBrush(false);
-    applySettings(d);
+    applySettings(sanitizeSettings(d, new Set(photoRegistry.keys())));
     state.layers = d.layers.map(it => {
-      const p = it.imgId ? photoRegistry.get(it.imgId) : null;
-      const l = newLayer(p ? photoFields(p) : {}, it.w, it.h, it.x, it.y);
-      for (const k of LAYER_PROPS) if (it[k] !== undefined) l[k] = it[k];
-      return l;
+      const p = typeof it?.imgId === 'string' ? photoRegistry.get(it.imgId) : null;
+      const props = sanitizeLayer(it);
+      const l = newLayer(p ? photoFields(p) : {}, props.w, props.h, props.x, props.y);
+      return Object.assign(l, props);
     });
     state.sel = Math.min(state.sel, state.layers.length - 1);
     state.crop = false;
