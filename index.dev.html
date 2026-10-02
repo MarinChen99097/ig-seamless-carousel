@@ -2173,13 +2173,19 @@
   // clear — keeping render() looping forever, which keeps re-deferring autosave, undo and previews.
   // So hidden layers never start a motion, never count as moving, and drop any motion when hidden.
   function markEnter(l, delay = 0) { if (l && !l.hidden && !reduceMotion()) l._in = { t0: performance.now(), delay }; }
+  // Only a picture or a plain shape may grow or shrink mid-glide. Text is drawn at its font size
+  // whatever its box is, and borders, shadows and line widths are absolute, so scaling the frame
+  // would shrink those to a fraction and back; they only travel.
+  const glideScales = l => l.kind !== 'text' && l.kind !== 'draw' && !(isBlock(l) && isOpen(l)) &&
+    !(l.border > 0) && !hasShadow(l);
   function markGlide(l, from) {
     if (l.hidden || reduceMotion()) return;
     const sx = from.w / l.w, sy = from.h / l.h;
     if (!(Math.abs(sx - sy) < 0.01)) return; // a non-uniform squash would distort the picture mid-glide
+    const s = glideScales(l) ? sx : 1;
     const dx = from.x + from.w / 2 - (l.x + l.w / 2), dy = from.y + from.h / 2 - (l.y + l.h / 2);
-    if (Math.hypot(dx, dy) < 0.5 && Math.abs(sx - 1) < 0.002) return;
-    l._g = { t0: performance.now(), dx, dy, s: sx };
+    if (Math.hypot(dx, dy) < 0.5 && Math.abs(s - 1) < 0.002) return;
+    l._g = { t0: performance.now(), dx, dy, s };
   }
   // This frame's display offset for a layer, or null. Finished motions clear themselves.
   function motionOf(l) {
