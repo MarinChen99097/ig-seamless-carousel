@@ -3636,6 +3636,18 @@
     syncBgFields();
   }
   const pick = l => Object.fromEntries(LAYER_PROPS.map(k => [k, l[k]]));
+  // A project file is untrusted input: `dataUrl` must be an inline base64 raster image and is
+  // decoded right here. Never fetch() it — any other string (https:, blob:, javascript:, an SVG)
+  // would make opening a file send a request or load active content. Returns null to refuse.
+  const DATA_URL_RE = /^data:image\/(png|jpeg|jpg|webp|gif|avif|bmp);base64,[A-Za-z0-9+/=\s]+$/i;
+  function dataUrlToBlob(s) {
+    if (typeof s !== 'string' || !DATA_URL_RE.test(s)) return null;
+    const type = 'image/' + s.slice(11, s.indexOf(';')).toLowerCase().replace('jpg', 'jpeg');
+    const bin = atob(s.slice(s.indexOf(',') + 1).replace(/\s+/g, ''));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type });
+  }
   const blobToDataUrl = blob => new Promise((res, rej) => {
     const fr = new FileReader();
     fr.onload = () => res(fr.result);
@@ -3661,8 +3673,9 @@
         try {
           if (key && cache.has(key)) photo = cache.get(key);
           else if (it.blob || it.dataUrl) {
-            const blob = it.blob || await (await fetch(it.dataUrl)).blob();
-            photo = await loadPhoto(blob, it.name, it.imgId);
+            // Only a real Blob (autosave) or a validated data: URL; anything else stays an empty slot.
+            const blob = it.blob instanceof Blob ? it.blob : it.blob ? null : dataUrlToBlob(it.dataUrl);
+            if (blob) photo = await loadPhoto(blob, it.name, it.imgId);
             if (key && photo) cache.set(key, photo);
           }
         } catch (err) {
