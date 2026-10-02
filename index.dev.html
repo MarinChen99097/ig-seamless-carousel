@@ -1979,9 +1979,9 @@
     previewKey = key;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const mk = w => makeCanvas(w, Math.round(w * H / SLIDE_W));
-    $('swipe').innerHTML = '';
-    $('thumbs').innerHTML = '';
-    $('dots').innerHTML = '';
+    $('swipe').replaceChildren();
+    $('thumbs').replaceChildren();
+    $('dots').replaceChildren();
     for (let i = 0; i < n; i++) {
       $('swipe').appendChild(mk(Math.round(320 * dpr)));
       const fig = document.createElement('figure');
@@ -2071,13 +2071,21 @@
   previewGate.observe($('swipe').closest('.row'));
   previewGate.observe($('profile'));
 
+  // Photo names come from file names and project files, so this paragraph is built from text
+  // nodes: nothing user-supplied is ever parsed as HTML.
+  const warnLine = text => {
+    const sp = document.createElement('span');
+    sp.className = 'warn';
+    sp.textContent = text;
+    return [document.createElement('br'), sp];
+  };
   function updateInfo() {
     const n = slideCount(), W = stripW(), H = stripH();
     const blurry = state.layers.filter(l => l.img && photoRect(l).s > 1.05);
     const empty = state.layers.filter(isSlot).length;
-    $('info').innerHTML = `輸出：${n} 張 × ${SLIDE_W}×${H}，整條 ${W}×${H}` +
-      (empty ? `<br><span class="warn">還有 ${empty} 個空白欄位（輸出時會是背景色）。</span>` : '') +
-      (blurry.length ? `<br><span class="warn">${blurry.map(l => l.name).join('、')} 被放大超過原始解析度，可能會糊。</span>` : '');
+    $('info').replaceChildren(`輸出：${n} 張 × ${SLIDE_W}×${H}，整條 ${W}×${H}`,
+      ...(empty ? warnLine(`還有 ${empty} 個空白欄位（輸出時會是背景色）。`) : []),
+      ...(blurry.length ? warnLine(`${blurry.map(l => l.name).join('、')} 被放大超過原始解析度，可能會糊。`) : []));
     $('stage').setAttribute('aria-label', `輪播排版預覽：${n} 張，${state.layers.length} 個圖層`);
     syncStageZoom();
     syncOffNote();
@@ -2225,7 +2233,7 @@
   function renderLayerList() {
     const ul = $('layers');
     const before = rowTops(ul);
-    ul.innerHTML = '';
+    ul.replaceChildren();
     for (let i = state.layers.length - 1; i >= 0; i--) {
       const l = state.layers[i];
       const li = document.createElement('li');
@@ -2403,7 +2411,7 @@
     const sel = $('bgPhoto'), cur = bgPhotoWanted || sel.value;
     const seen = new Map();
     for (const l of state.layers) if (l.img && !seen.has(l.imgId)) seen.set(l.imgId, l.name);
-    sel.innerHTML = '';
+    sel.replaceChildren();
     for (const [id, name] of seen) {
       const o = document.createElement('option');
       o.value = id; o.textContent = name;
@@ -2539,7 +2547,7 @@
   // ---------- text ----------
   function buildFontSelect() {
     const sel = $('font');
-    sel.innerHTML = '';
+    sel.replaceChildren();
     for (const [g, label] of FONT_GROUPS) {
       const og = document.createElement('optgroup');
       og.label = label;
@@ -2985,7 +2993,10 @@
 
   const addTemplateButtons = (list, host, apply) => list.forEach(t => {
     const b = document.createElement('button');
-    b.innerHTML = templateThumb(t) + `<span>${t.name}${t.count > 1 && host === 'pageTemplates' ? `（${t.count} 張）` : ''}</span>`;
+    b.innerHTML = templateThumb(t); // markup built only from the TEMPLATES constants above
+    const sp = document.createElement('span');
+    sp.textContent = t.name + (t.count > 1 && host === 'pageTemplates' ? `（${t.count} 張）` : '');
+    b.appendChild(sp);
     b.addEventListener('click', () => apply(t));
     $(host).appendChild(b);
   });
