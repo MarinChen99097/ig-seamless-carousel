@@ -1831,10 +1831,20 @@
 
   let rafPending = false, sceneDirty = true, previewTimer = 0;
   let sceneRev = 0; // bumps on every scene change, so prepared share files can tell they are stale
+  // Slides kept after the browser refused to open the share sheet (see the 分享圖片 handler).
+  // A scene or format change makes them stale, so the button stops saying 再按一次 right then.
+  let readyShare = null;
+  function dropShareRetry() {
+    if (!readyShare) return;
+    readyShare = null;
+    const btn = $('shareOut');
+    btn.classList.remove('retry');
+    if (!btn.classList.contains('busy')) btn.querySelector('.lbl').textContent = btn.dataset.label;
+  }
   function schedulePreviews() { clearTimeout(previewTimer); previewTimer = setTimeout(drawPreviews, 120); }
   // `sceneChanged=false` only redraws the selection/guide layer (hover, guides) — much cheaper.
   function render(sceneChanged = true) {
-    if (sceneChanged) { sceneDirty = true; sceneRev++; }
+    if (sceneChanged) { sceneDirty = true; sceneRev++; dropShareRetry(); }
     if (rafPending) return;
     rafPending = true;
     requestAnimationFrame(now => {
@@ -3674,8 +3684,8 @@
   $('shareOut').hidden = !CAN_SHARE_FILES;
   // The share sheet may only open shortly after a tap. If rendering the slides took longer, the
   // browser refuses with NotAllowedError; the files are then kept, and the next tap shares them
-  // straight away as long as nothing in the scene or the format changed.
-  let readyShare = null;
+  // straight away as long as nothing in the scene or the format changed (dropShareRetry).
+  $('quality').addEventListener('change', dropShareRetry);
   $('shareOut').addEventListener('click', async () => {
     const btn = $('shareOut');
     if (btn.classList.contains('busy')) return;
