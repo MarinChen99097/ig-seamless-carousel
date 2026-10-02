@@ -2233,8 +2233,9 @@
   // Layer list: the rows are rebuilt on every change, so motion is worked out by matching rows to
   // their layer — rows that moved slide from where they were (FLIP), new rows ease in. Only a
   // visible list animates (selecting a layer switches to the 編輯 tab, so in practice this is
-  // drag-reordering). When most rows are "new" (undo, opening a project) the list was replaced
-  // rather than edited, and it switches without motion.
+  // drag-reordering). When every row is "new" (undo and redo rebuild every layer from a snapshot,
+  // however few there are) or most of them are (opening a project), the list was replaced rather
+  // than edited, and it switches without motion.
   function rowTops(ul) {
     if (reduceMotion() || !ul.offsetParent) return null;
     const m = new Map();
@@ -2244,7 +2245,8 @@
   function animateRows(ul, before) {
     if (!before || !before.size || !ul.offsetParent) return;
     const rows = [...ul.children];
-    if (rows.filter(li => !before.has(li.__layer)).length > Math.max(2, before.size / 2)) return;
+    const fresh = rows.filter(li => !before.has(li.__layer)).length;
+    if (fresh === rows.length || fresh > Math.max(2, before.size / 2)) return;
     let k = 0;
     for (const li of rows) {
       const top = before.get(li.__layer);
