@@ -2261,6 +2261,7 @@
     }
     return isBlock(l) ? '色塊' : '空白照片欄位';
   }
+  function hasExportable() { return state.layers.some(l => l.img || l.kind === 'text' || l.kind === 'draw' || isBlock(l)); }
   function renderLayerList() {
     const ul = $('layers');
     const before = rowTops(ul);
@@ -2329,8 +2330,9 @@
     const wasHidden = $('editor').hidden;
     $('editor').hidden = !has;
     if (wasHidden && has) fitW = 0; // the wrapper had no width while the editor was hidden
-    $('export').disabled = !state.layers.some(l => l.img || l.kind === 'text' || l.kind === 'draw' || isBlock(l));
-    if (!$('shareOut').classList.contains('busy')) $('shareOut').disabled = $('export').disabled;
+    // A busy button stays disabled until its own job ends (setDone); a rebuild mid-export must not
+    // re-enable it, or a second click starts a second export alongside the first.
+    for (const id of ['export', 'shareOut']) if (!$(id).classList.contains('busy')) $(id).disabled = !hasExportable();
     document.querySelectorAll('[data-act]').forEach(b => { b.disabled = !canRun(selected(), b.dataset.act); });
     syncBgPhotoOptions();
     syncProps();
@@ -3605,7 +3607,9 @@
   function setDone(btn, text, ok) {
     const lbl = btn.querySelector('.lbl');
     btn.classList.remove('busy');
-    btn.disabled = false;
+    // What the canvas holds now decides, not what it held when the job started: everything may
+    // have been deleted meanwhile. A project can always be saved.
+    btn.disabled = btn.id !== 'saveProj' && !hasExportable();
     const reset = () => { btn.classList.remove('done'); if (lbl) lbl.textContent = btn.dataset.label; };
     if (!ok) { reset(); return; }
     if (lbl) lbl.textContent = text;
@@ -3619,6 +3623,7 @@
 
   $('export').addEventListener('click', async () => {
     const btn = $('export');
+    if (btn.classList.contains('busy')) return; // one export at a time
     setBusy(btn, '輸出中…');
     let ok = false;
     try {
@@ -3652,6 +3657,7 @@
   let readyShare = null;
   $('shareOut').addEventListener('click', async () => {
     const btn = $('shareOut');
+    if (btn.classList.contains('busy')) return;
     const type = $('quality').value;
     let files = readyShare && readyShare.rev === sceneRev && readyShare.type === type ? readyShare.files : null;
     const rev = files ? readyShare.rev : sceneRev;
@@ -3827,8 +3833,8 @@
   }
 
   async function saveProjectFile() {
-    if (!state.layers.length) return;
     const btn = $('saveProj');
+    if (!state.layers.length || btn.classList.contains('busy')) return; // Ctrl+S ignores a disabled button
     setBusy(btn, '儲存中…');
     let ok = false;
     try {
