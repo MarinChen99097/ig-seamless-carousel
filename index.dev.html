@@ -224,9 +224,18 @@
     details { interpolate-size: allow-keywords; }
     details::details-content { block-size: 0; overflow-y: clip; opacity: 0; transition: block-size var(--t-panel) var(--ease-out), content-visibility var(--t-panel) allow-discrete, opacity var(--t-panel) var(--ease-out); }
     details[open]::details-content { block-size: auto; opacity: 1; }
-    /* The clip above cuts at the content's top edge, and overflow-clip-margin does nothing while
-       only one axis clips (Chromium), so give the first field room for its focus ring instead. */
-    .props > summary + .field { padding-top: 4px; }
+    /* The clip above cuts at the content's top AND bottom edges, so a focus ring (2px outline +
+       2px offset) on a control flush with either edge loses that side: the first row of the
+       template grids, the last field of every panel, the last row of the sticker grid.
+       overflow-clip-margin does nothing while only one axis clips (Chromium), so the first and
+       the last shown block of every panel get 4px of room instead. "Shown" matters: the edit
+       panels end in fields only some layers use (換照片, the gradient and photo background
+       fields), and a hidden last child would leave the real last field flush with the edge.
+       The room is padding, so it must sit on a wrapper: on a bare button it would only make
+       the button taller (hence the div around #replacePhoto).
+       (Commit 6d224d3 only covered the first field of the .props panels; this replaces it.) */
+    :is(details.section, details.sub) > summary ~ :not([hidden]):not(summary ~ :not([hidden]) ~ *) { padding-top: 4px; }
+    :is(details.section, details.sub) > summary ~ :not([hidden]):not(:has(~ :not([hidden]))) { padding-bottom: 4px; }
   }
   @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.99); } to { opacity: 1; transform: none; } }
   details.section.props:not([hidden]) { animation: pop var(--t-pop) var(--ease-out) backwards; }
@@ -658,7 +667,8 @@
             <button id="shadowOff" title="清除陰影">清除</button>
           </div>
         </div>
-        <button id="replacePhoto" class="wide photo-only">換照片</button>
+        <!-- wrapped so the 4px ring room below the last block of a panel sits outside the button -->
+        <div class="photo-only"><button id="replacePhoto" class="wide">換照片</button></div>
       </details>
 
       <details class="section props" id="textProps" open hidden>
