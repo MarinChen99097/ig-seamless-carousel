@@ -1213,18 +1213,157 @@
     return cv;
   }
 
+  // Safari (WebKit) has no CanvasRenderingContext2D.filter: setting it is a silent no-op, so every
+  // adjustment, preset and the blurred background would vanish from the editor and the export.
+  // Without it, buildFiltered computes the same filters from the pixels instead.
+  const CANVAS_FILTER = 'filter' in CanvasRenderingContext2D.prototype;
+  // The pixel blur runs on the main thread and costs time per pixel: at the native filter's 3000 px
+  // working width it took ~4.3 s in Playwright's WebKit on a desktop (1800 px: ~1.9 s). So it works
+  // at a lower resolution: never wider than FALLBACK_BLUR_W, and only as wide as leaves a blur of
+  // about FALLBACK_SIGMA working pixels. The result is enlarged with smoothing, and a Gaussian that
+  // wide has no detail for the enlargement to lose. A 40 px blur now runs on ~100 px; the slow case
+  // left is a blur of 1-2 px on a large photo, which hits the cap (~0.4 s measured).
+  const FALLBACK_BLUR_W = 1800;
+  const FALLBACK_SIGMA = 2;
+  // Shrinks by halves to within 4x of `tw`, so the last drawImage averages neighbouring pixels
+  // instead of sampling a few of them out of a much larger photo.
+  function halveTo(src, natW, natH, tw) {
+    while (natW >= tw * 4) {
+      const w = Math.ceil(natW / 2), h = Math.ceil(natH / 2);
+      const cv = makeCanvas(w, h), c = cv.getContext('2d');
+      c.imageSmoothingQuality = 'high';
+      c.drawImage(src, 0, 0, natW, natH, 0, 0, w, h);
+      src = cv; natW = w; natH = h;
+    }
+    return { src, natW, natH };
+  }
+
+  // brightness() contrast() saturate() grayscale() with the Filter Effects formulas, in the order
+  // filterCss writes them, each step clamped to 0..1 like a separate filter primitive.
+  function adjustPixels(d, l) {
+    const b = Number(l.bright) / 100, k = Number(l.contrast) / 100, s = Number(l.satur) / 100;
+    const a = 1 - Math.min(1, Math.max(0, Number(l.fade) / 100)); // grayscale(g) uses a = 1 - g
+    const lut = new Float32Array(256); // brightness and contrast act per channel
+    for (let i = 0; i < 256; i++) {
+      const v = Math.min(1, i / 255 * b);
+      lut[i] = Math.min(1, Math.max(0, (v - 0.5) * k + 0.5));
+    }
+    // saturate(s) and grayscale(g) matrices, row-major 3x3
+    const S = [0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s,
+      0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s,
+      0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s];
+    const G = [0.2126 + 0.7874 * a, 0.7152 - 0.7152 * a, 0.0722 - 0.0722 * a,
+      0.2126 - 0.2126 * a, 0.7152 + 0.2848 * a, 0.0722 - 0.0722 * a,
+      0.2126 - 0.2126 * a, 0.7152 - 0.7152 * a, 0.0722 + 0.9278 * a];
+    const mats = [s !== 1 && S, a !== 1 && G].filter(Boolean);
+    const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+    for (let i = 0; i < d.length; i += 4) {
+      let r = lut[d[i]], g = lut[d[i + 1]], bl = lut[d[i + 2]];
+      for (const M of mats) {
+        const r2 = M[0] * r + M[1] * g + M[2] * bl;
+        const g2 = M[3] * r + M[4] * g + M[5] * bl;
+        const b2 = M[6] * r + M[7] * g + M[8] * bl;
+        r = clamp01(r2); g = clamp01(g2); bl = clamp01(b2);
+      }
+      d[i] = r * 255; d[i + 1] = g * 255; d[i + 2] = bl * 255; // the clamped array rounds
+    }
+  }
+  const isNeutral = l => !l || (l.bright === 100 && l.contrast === 100 && l.satur === 100 && l.fade === 0);
+
+  // Three box blurs in a row approximate a Gaussian; CSS blur(Npx) is a Gaussian with sigma N.
+  // Box widths from the usual "boxes for Gauss" fit, returned as radii.
+  function boxRadii(sigma) {
+    const w = Math.sqrt(4 * sigma * sigma + 1); // sqrt(12 sigma² / 3 + 1)
+    let wl = Math.floor(w);
+    if (wl % 2 === 0) wl--;
+    const m = Math.round((12 * sigma * sigma - 3 * wl * wl - 12 * wl - 9) / (-4 * wl - 4));
+    return [0, 1, 2].map(i => ((i < m ? wl : wl + 2) - 1) / 2);
+  }
+  // One box pass along rows (horiz) or columns, from `a` into `o`, past the edges repeating the edge
+  // pixel. Columns are walked a whole row at a time with one running sum per channel, which keeps
+  // memory access sequential.
+  function boxPass(a, o, w, h, r, horiz) {
+    const d = 2 * r + 1, row = w * 4, inv = 1 / d;
+    if (horiz) {
+      for (let y = 0; y < h; y++) {
+        const base = y * row, lastPx = base + row - 4;
+        let s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+        for (let j = -r; j <= r; j++) {
+          const q = base + (j < 0 ? 0 : j >= w ? w - 1 : j) * 4;
+          s0 += a[q]; s1 += a[q + 1]; s2 += a[q + 2]; s3 += a[q + 3];
+        }
+        for (let x = 0, p = base; x < w; x++, p += 4) {
+          o[p] = s0 * inv; o[p + 1] = s1 * inv; o[p + 2] = s2 * inv; o[p + 3] = s3 * inv;
+          const ad = x + r + 1 >= w ? lastPx : p + (r + 1) * 4, sb = x - r < 0 ? base : p - r * 4;
+          s0 += a[ad] - a[sb]; s1 += a[ad + 1] - a[sb + 1]; s2 += a[ad + 2] - a[sb + 2]; s3 += a[ad + 3] - a[sb + 3];
+        }
+      }
+      return;
+    }
+    const sums = new Int32Array(row);
+    for (let j = -r; j <= r; j++) {
+      const s = (j < 0 ? 0 : j >= h ? h - 1 : j) * row;
+      for (let k = 0; k < row; k++) sums[k] += a[s + k];
+    }
+    for (let y = 0; y < h; y++) {
+      const out = y * row, ad = y + r + 1, sb = y - r;
+      const add = (ad >= h ? h - 1 : ad) * row, sub = (sb < 0 ? 0 : sb) * row;
+      for (let k = 0; k < row; k++) {
+        o[out + k] = sums[k] * inv;
+        sums[k] += a[add + k] - a[sub + k];
+      }
+    }
+  }
+  function blurPixels(img, sigma) {
+    const { data, width: w, height: h } = img;
+    let opaque = true;
+    for (let i = 3; i < data.length; i += 4) if (data[i] !== 255) { opaque = false; break; }
+    if (!opaque) { // blur premultiplied colour so transparent pixels do not bleed black
+      for (let i = 0; i < data.length; i += 4) {
+        const al = data[i + 3] / 255;
+        data[i] *= al; data[i + 1] *= al; data[i + 2] *= al;
+      }
+    }
+    const tmp = new Uint8ClampedArray(data.length);
+    for (const r of boxRadii(sigma)) {
+      if (r < 1) continue;
+      boxPass(data, tmp, w, h, r, true);
+      boxPass(tmp, data, w, h, r, false);
+    }
+    if (!opaque) {
+      for (let i = 0; i < data.length; i += 4) {
+        const al = data[i + 3];
+        if (al && al < 255) { const f = 255 / al; data[i] *= f; data[i + 1] *= f; data[i + 2] *= f; }
+      }
+    }
+  }
+  // The pixel version of `c.filter = filterCss(adj) + blur(bs)` on the canvas `c` already holds.
+  function filterPixels(c, w, h, adj, bs) {
+    const colour = !isNeutral(adj);
+    if (!colour && !(bs > 0)) return;
+    const img = c.getImageData(0, 0, w, h);
+    if (colour) adjustPixels(img.data, adj);
+    if (bs > 0) blurPixels(img, bs);
+    c.putImageData(img, 0, 0);
+  }
+
   // Renders `src` through a CSS filter once. `blurStrip` is in strip pixels and is converted to the
   // source's own scale, so the editor view and the full-resolution export blur by the same amount.
   // The source is edge-extended first so the blur does not fade into transparency at the border.
-  function buildFiltered(src, natW, natH, drawW, css, blurStrip, slot, key) {
+  // `adj` is the layer whose brightness/contrast/saturation/fade apply, or null for none.
+  function buildFiltered(src, natW, natH, drawW, adj, blurStrip, slot, key) {
     if (slot) {
       const hit = filterCache.get(slot);
       if (hit && hit.key === key) return hit.res;
     }
+    const css = adj ? filterCss(adj) : 'none';
     const blurred = blurStrip > 0;
-    const tw = blurred ? Math.min(natW, Math.max(600, Math.min(3000, Math.ceil(drawW * 1.5))))
-      : Math.min(natW, MAX_FILTER_W);
+    const tw = !blurred ? Math.min(natW, MAX_FILTER_W)
+      : CANVAS_FILTER ? Math.min(natW, Math.max(600, Math.min(3000, Math.ceil(drawW * 1.5))))
+      : Math.min(natW, Math.max(64, Math.min(FALLBACK_BLUR_W, Math.ceil(drawW * 1.5),
+        Math.ceil(drawW * FALLBACK_SIGMA / blurStrip))));
     const th = Math.max(1, Math.round(tw * natH / natW));
+    if (blurred && !CANVAS_FILTER) ({ src, natW, natH } = halveTo(src, natW, natH, tw));
     const bs = blurred ? blurStrip * tw / Math.max(1, drawW) : 0;
     const m = Math.ceil(bs * 2);
     if (m === 0) {
@@ -1232,8 +1371,9 @@
       const only = makeCanvas(tw, th);
       const c = only.getContext('2d');
       c.imageSmoothingQuality = 'high';
-      c.filter = css && css !== 'none' ? css : 'none';
+      if (CANVAS_FILTER) c.filter = css && css !== 'none' ? css : 'none';
       c.drawImage(src, 0, 0, natW, natH, 0, 0, tw, th);
+      if (!CANVAS_FILTER) filterPixels(c, tw, th, adj, 0);
       const r = { cv: only, sx: 0, sy: 0, sw: tw, sh: th };
       if (slot) filterCache.set(slot, { key, res: r });
       return r;
@@ -1252,6 +1392,12 @@
       ec.drawImage(src, natW - 1, natH - 1, 1, 1, m + tw, m + th, m, m);
     }
     ec.drawImage(src, 0, 0, natW, natH, m, m, tw, th);
+    if (!CANVAS_FILTER) {
+      filterPixels(ec, ext.width, ext.height, adj, bs);
+      const res = { cv: ext, sx: m, sy: m, sw: tw, sh: th };
+      if (slot) filterCache.set(slot, { key, res });
+      return res;
+    }
     const out = makeCanvas(ext.width, ext.height);
     const oc = out.getContext('2d');
     const parts = [css, bs > 0 ? `blur(${bs}px)` : ''].filter(x => x && x !== 'none');
@@ -1481,7 +1627,7 @@
     if (hasFilter(l)) {
       // Cache the editor-resolution result; the export builds a one-off at full resolution.
       const key = `${l.imgId}|${tag}|${filterCss(l)}|${l.blurPx}|${l.blurPx > 0 ? Math.round(p.dw / 48) : 0}`;
-      const f = buildFiltered(src, natW, natH, p.dw, filterCss(l), l.blurPx, full ? null : l, key);
+      const f = buildFiltered(src, natW, natH, p.dw, l, l.blurPx, full ? null : l, key);
       drawPhoto(c, l, f.cv, p, f.sx, f.sy, f.sw, f.sh);
     } else {
       filterCache.delete(l); // no filter left: let the cached canvas go
@@ -1555,7 +1701,7 @@
     const natW = src.naturalWidth || src.width, natH = src.naturalHeight || src.height;
     const s = Math.max(W / natW, H / natH), dw = natW * s, dh = natH * s;
     const key = `${photo.imgId}|${tag}|${blur}|${Math.round(dw / 48)}`;
-    const f = blur > 0 ? buildFiltered(src, natW, natH, dw, 'none', blur, full ? null : BG_SLOT, key) : null;
+    const f = blur > 0 ? buildFiltered(src, natW, natH, dw, null, blur, full ? null : BG_SLOT, key) : null;
     if (f) c.drawImage(f.cv, f.sx, f.sy, f.sw, f.sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
     else c.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
     const dim = (parseFloat($('bgDim').value) || 0) / 100;
