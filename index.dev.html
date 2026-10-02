@@ -24,8 +24,9 @@
     --ease: cubic-bezier(.2, .7, .2, 1);
     --t-fast: 140ms; --t: 220ms; --t-slow: 420ms;
     /* Motion: entrances decelerate, exits accelerate and are shorter; springs settle with a
-       small overshoot so things land instead of stopping dead. Fallbacks for browsers without
-       linear() are plain decelerating curves. */
+       small overshoot so things land instead of stopping dead. Without linear() support,
+       --spring falls back to the plain decelerating --ease-out, while --spring-pop's
+       cubic-bezier fallback still overshoots (about 5%). */
     --ease-out: cubic-bezier(.22, 1, .36, 1);
     --ease-in: cubic-bezier(.4, 0, 1, 1);
     --spring: var(--ease-out);
@@ -57,7 +58,9 @@
 
   @supports (transition-timing-function: linear(0, 1)) {
     :root {
-      /* damped springs sampled into linear(): ~2% overshoot for panels, ~5% for small pops */
+      /* damped springs sampled into linear(). --spring (~2% overshoot) moves the tab highlight,
+         the section chevrons, the drop zone, the preview dots and the off-strip note; panels
+         themselves use --ease-out. --spring-pop (~5%) is for small pops such as icons. */
       --spring: linear(0, 0.0628, 0.204, 0.371, 0.533, 0.674, 0.787, 0.873, 0.934, 0.975, 0.999, 1.01, 1.02, 1.02, 1.02, 1.02, 1.01, 1.01, 1.01, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
       --spring-pop: linear(0, 0.0983, 0.306, 0.531, 0.726, 0.871, 0.965, 1.02, 1.04, 1.05, 1.04, 1.03, 1.02, 1.01, 1, 1, 0.999, 0.998, 0.998, 0.998, 0.999, 0.999, 1, 1, 1);
     }
@@ -2182,8 +2185,9 @@
   });
 
   // ---------- motion helpers ----------
-  // Everything here is presentation only. Reduced motion turns all of it off; the curves come
-  // from the CSS tokens so CSS and script motion feel the same.
+  // Everything here is presentation only. Reduced motion turns all of it off. Only SPRING_CSS
+  // reads its curve from a CSS token (--spring); EASE_OUT_CSS, EASE_IN_CSS and springAt() are
+  // copies of the CSS values kept in sync by hand, so change them together with the tokens.
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const cssToken = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   const HAS_LINEAR = CSS.supports('transition-timing-function', 'linear(0, 1)');
@@ -2194,7 +2198,9 @@
   // Canvas: a layer can carry transient, never-saved `_in` (fade and settle in after being added)
   // and `_g` (glide from where a toolbar action moved it). Both only change how the editor view
   // draws it — x/y/w/h are already final — so undo, autosave, hit-testing and export never see an
-  // in-between value. Anything that starts a direct manipulation calls stopMotion() first.
+  // in-between value. A direct manipulation ends every running motion first (stopMotion()):
+  // a pointerdown on the canvas, an arrow-key nudge, and the panel sliders and colour pickers
+  // (bindProp / bindColour).
   const ENTER_MS = 440, GLIDE_MS = 420;
   let frameNow = 0;
   // Damped spring (~2% overshoot) as a function of progress 0..1, matching the CSS --spring token.
@@ -2526,6 +2532,7 @@
     const apply = v => {
       const l = editTarget();
       if (!l || Number.isNaN(v)) return;
+      stopMotion();
       l[key] = v;
       if (fix) fix(l);
       syncProps();
@@ -2538,6 +2545,7 @@
     $(id).addEventListener('input', e => {
       const l = editTarget();
       if (!l) return;
+      stopMotion();
       l[key] = e.target.value;
       if (relist) paintLayerSwatch(l);
       render();
@@ -3594,7 +3602,7 @@
     }
     const step = e.shiftKey ? 10 : 1;
     const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
-    if (moves[e.key]) { if (!editable(l)) return; l.x += moves[e.key][0]; l.y += moves[e.key][1]; }
+    if (moves[e.key]) { if (!editable(l)) return; stopMotion(); l.x += moves[e.key][0]; l.y += moves[e.key][1]; }
     else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (!canRun(l, 'remove')) return;
       runAction('remove');
@@ -4290,9 +4298,9 @@
   mobile.addEventListener('change', place);
   place();
 
-  // Export button lives in the app bar; nudge the 畫布 tab's info when it becomes available.
+  // The export button lives in the app bar, away from the panels. The first time there is
+  // something to export, it glows once to point at the next step.
   const exp = $('export');
-  // The first time there is something to export, the button glows once to point at the next step.
   let pointed = false;
   new MutationObserver(() => {
     if (pointed || exp.disabled) return;
