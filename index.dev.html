@@ -3927,11 +3927,19 @@
       });
       const mine = { savedAt: Date.now(), slot: slotId, ...settingsOf(),
         layers: state.layers.map(l => ({ ...pick(l), imgId: l.img ? l.imgId : null })) };
-      await idb('readwrite', s => {
-        for (const l of state.layers) {
-          const key = 'img:' + l.imgId;
-          if (l.img && !stored.has(key)) { s.put(l.blob, key); stored.add(key); }
+      // Safari (WebKit) fails the whole transaction when a value is a Blob/File ("transaction
+      // failed", on file:// and https alike), so a photo is stored as its bytes, { type, buf }.
+      // Reading them is async and a transaction closes at the first await, so it happens first.
+      const puts = [];
+      for (const l of state.layers) {
+        const key = 'img:' + l.imgId;
+        if (l.img && !stored.has(key)) {
+          stored.add(key);
+          puts.push([key, { type: l.blob.type, buf: await l.blob.arrayBuffer() }]);
         }
+      }
+      await idb('readwrite', s => {
+        for (const [key, v] of puts) s.put(v, key);
         for (const k of stale) s.delete(k);
         for (const k of stored) if (!keep.has(k)) s.delete(k);
         s.put(mine, layoutKey);
@@ -3943,6 +3951,9 @@
       autosaveUnavailable(err);
     }
   }
+  // A stored photo is { type, buf } (see autosave); versions before that stored the Blob itself.
+  const storedPhoto = v => (v instanceof Blob ? v
+    : v && v.buf instanceof ArrayBuffer ? new Blob([v.buf], { type: String(v.type || '') }) : null);
   // Prefers this tab's own record; otherwise the most recently saved one (including the single
   // record older versions wrote). Photos whose blob is gone stay as empty slots.
   async function restoreAutosave() {
@@ -3970,7 +3981,7 @@
       let missing = 0;
       for (const it of rec.layers) {
         if (!it.imgId) { items.push(it); continue; }
-        const blob = blobs.get('img:' + it.imgId);
+        const blob = storedPhoto(blobs.get('img:' + it.imgId));
         if (blob) items.push({ ...it, blob });
         else { missing++; items.push({ ...it, imgId: null }); } // keep the layer as an empty slot
       }
