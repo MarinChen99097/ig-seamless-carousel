@@ -436,6 +436,8 @@
 
   /* theme switch: the script clips the new snapshot open from the button, no default cross-fade */
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  /* The transition overlay covers the page while it plays; clicks must go through to the page. */
+  ::view-transition { pointer-events: none; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
@@ -4145,7 +4147,28 @@
     $('themeBtn').setAttribute('aria-pressed', String(dark));
   };
   applyTheme();
+  // While the circle plays, the page shows snapshots, so anything the user does next would land
+  // unseen. The next press or key finishes the running transition at once.
+  let themeVT = null, pressInVT = false;
+  const skipThemeVT = () => { if (!themeVT) return false; themeVT.skipTransition(); themeVT = null; return true; };
+  addEventListener('pointerdown', () => { pressInVT = skipThemeVT(); }, true);
+  addEventListener('keydown', skipThemeVT, true);
+  // Chromium hit-tests a press that starts during the transition as <html>, even with
+  // pointer-events: none on the overlay (measured in Chromium 143), so the click that follows is
+  // aimed at <html> and the button under the finger never hears it. Hand it on.
+  addEventListener('click', e => {
+    const was = pressInVT;
+    pressInVT = false;
+    if (!was || e.target !== root) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const hit = el && el.closest('button, a[href], summary, label, input, select, textarea, [tabindex]');
+    if (!hit || hit.disabled) return;
+    e.stopImmediatePropagation();
+    if (hit.matches('input, select, textarea')) hit.focus();
+    hit.click();
+  }, true);
   $('themeBtn').addEventListener('click', () => {
+    skipThemeVT();
     theme = theme === '' ? 'light' : theme === 'light' ? 'dark' : '';
     try { theme ? localStorage.setItem('igc-theme', theme) : localStorage.removeItem('igc-theme'); } catch (_) {}
     // The new theme spreads out from the button as a circle; without View Transitions or with
@@ -4154,10 +4177,12 @@
     const r = $('themeBtn').getBoundingClientRect();
     const x = r.left + r.width / 2, y = r.top + r.height / 2;
     const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-    document.startViewTransition(applyTheme).ready.then(() => {
+    const vt = themeVT = document.startViewTransition(applyTheme);
+    vt.ready.then(() => {
       root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] },
         { duration: 600, easing: 'cubic-bezier(.22, 1, .36, 1)', pseudoElement: '::view-transition-new(root)' });
     }).catch(() => {});
+    vt.finished.finally(() => { if (themeVT === vt) themeVT = null; }).catch(() => {});
   });
 
   // Mobile tabs: the sidebar cards carry data-group; the bottom bar shows one group at a time.
