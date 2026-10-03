@@ -4183,9 +4183,12 @@
         else { missing++; items.push({ ...it, imgId: null }); } // keep the layer as an empty slot
       }
       if (!await restoreProject(rec, items)) return;
-      const when = rec.savedAt ? new Date(rec.savedAt).toLocaleString() : '';
+      // The time is shown only when it is believable (autosave writes Date.now(), but the record may
+      // come from another version or be damaged): otherwise the note just leaves it out.
+      const t = new Date(rec.savedAt).getTime();
+      const when = t >= Date.UTC(2020, 0, 1) && t <= Date.now() + 864e5 ? `（${new Date(t).toLocaleString()}）` : '';
       const where = from === 'own' ? '這個分頁上次的排版' : from === 'legacy' ? '舊版自動暫存的排版' : '最近一次自動暫存的排版（來自其他分頁）';
-      $('autosave').textContent = `已還原${where}（${when}）` +
+      $('autosave').textContent = `已還原${where}${when}` +
         (missing ? `，其中 ${missing} 張照片已遺失，留成空白欄位` : '');
       keepRestoreNote = true;
     } catch (err) {
