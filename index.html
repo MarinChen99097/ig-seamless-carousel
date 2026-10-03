@@ -2,6 +2,12 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<!-- Defence in depth: the page loads nothing but its own inline code, Google Fonts, the Cubic 11
+     font from jsDelivr (only that font's folder: jsDelivr serves every public repository) and the
+     user's own photos (blob:/data:). Any other request — an injected image, a CSS url(), a fetch,
+     a <base> or a <form> pointed elsewhere — is refused by the browser even if a bug lets one
+     through. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net/gh/ACh-K/Cubic-11@main/fonts/web/ data:; img-src 'self' blob: data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net/gh/ACh-K/Cubic-11@main/fonts/web/ blob: data:; worker-src blob:; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f4f3f1" media="(prefers-color-scheme: light)">
@@ -20,8 +26,9 @@
     --ease: cubic-bezier(.2, .7, .2, 1);
     --t-fast: 140ms; --t: 220ms; --t-slow: 420ms;
     /* Motion: entrances decelerate, exits accelerate and are shorter; springs settle with a
-       small overshoot so things land instead of stopping dead. Fallbacks for browsers without
-       linear() are plain decelerating curves. */
+       small overshoot so things land instead of stopping dead. Without linear() support,
+       --spring falls back to the plain decelerating --ease-out, while --spring-pop's
+       cubic-bezier fallback still overshoots (about 5%). */
     --ease-out: cubic-bezier(.22, 1, .36, 1);
     --ease-in: cubic-bezier(.4, 0, 1, 1);
     --spring: var(--ease-out);
@@ -53,7 +60,9 @@
 
   @supports (transition-timing-function: linear(0, 1)) {
     :root {
-      /* damped springs sampled into linear(): ~2% overshoot for panels, ~5% for small pops */
+      /* damped springs sampled into linear(). --spring (~2% overshoot) moves the tab highlight,
+         the section chevrons, the drop zone, the preview dots and the off-strip note; panels
+         themselves use --ease-out. --spring-pop (~5%) is for small pops such as icons. */
       --spring: linear(0, 0.0628, 0.204, 0.371, 0.533, 0.674, 0.787, 0.873, 0.934, 0.975, 0.999, 1.01, 1.02, 1.02, 1.02, 1.02, 1.01, 1.01, 1.01, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
       --spring-pop: linear(0, 0.0983, 0.306, 0.531, 0.726, 0.871, 0.965, 1.02, 1.04, 1.05, 1.04, 1.03, 1.02, 1.01, 1, 1, 0.999, 0.998, 0.998, 0.998, 0.999, 0.999, 1, 1, 1);
     }
@@ -61,7 +70,9 @@
 
   /* ---------- base ---------- */
   *, *::before, *::after { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+  /* Whatever gets focus (Tab) is scrolled clear of the sticky app bar, with room for its focus ring;
+     on phones also clear of the fixed tab bar (see the 900px block). */
+  html { -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--appbar) + 8px); }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
@@ -92,7 +103,8 @@
     display: grid; place-items: center; color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
   }
   .logo svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .brand h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: .01em; white-space: nowrap; }
+  .brand h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand > div { min-width: 0; } /* on a phone the title gives way to the buttons instead of running under them */
   .brand small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; margin-top: -2px; white-space: nowrap; }
   .appbar .actions { display: flex; align-items: center; gap: 6px; }
 
@@ -169,7 +181,9 @@
   .seg.wide3 { grid-template-columns: repeat(3, 1fr); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chips button { padding: 5px 11px; min-height: 30px; font-size: 12px; border-radius: 999px; }
-  .emoji { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 150px; overflow-y: auto; padding: 2px; border-radius: var(--radius-sm); background: var(--panel-2); }
+  /* The grid scrolls, so it clips: 4px of padding (and of scroll padding) is the room a focus ring
+     (2px outline + 2px offset) needs around the cells at its edges. */
+  .emoji { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 150px; overflow-y: auto; padding: 4px; scroll-padding: 4px; border-radius: var(--radius-sm); background: var(--panel-2); }
   .emoji button { padding: 2px 0; min-height: 34px; font-size: 20px; border: 0; background: transparent; border-radius: 8px; }
 
   /* ---------- layout ---------- */
@@ -182,6 +196,9 @@
     position: sticky; top: calc(var(--appbar) + 18px); align-self: start;
     max-height: calc(100dvh - var(--appbar) - 36px); overflow-y: auto; overscroll-behavior: contain;
     scrollbar-width: thin; padding-right: 2px;
+    /* Reserve the scrollbar's room even when a tab is short enough not to scroll, so switching
+       tabs never changes the tab bar's width (which used to make the highlight jump). */
+    scrollbar-gutter: stable;
   }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; box-shadow: var(--shadow); }
   .side .card { margin-bottom: 12px; }
@@ -219,9 +236,18 @@
     details { interpolate-size: allow-keywords; }
     details::details-content { block-size: 0; overflow-y: clip; opacity: 0; transition: block-size var(--t-panel) var(--ease-out), content-visibility var(--t-panel) allow-discrete, opacity var(--t-panel) var(--ease-out); }
     details[open]::details-content { block-size: auto; opacity: 1; }
-    /* The clip above cuts at the content's top edge, and overflow-clip-margin does nothing while
-       only one axis clips (Chromium), so give the first field room for its focus ring instead. */
-    .props > summary + .field { padding-top: 4px; }
+    /* The clip above cuts at the content's top AND bottom edges, so a focus ring (2px outline +
+       2px offset) on a control flush with either edge loses that side: the first row of the
+       template grids, the last field of every panel, the last row of the sticker grid.
+       overflow-clip-margin does nothing while only one axis clips (Chromium), so the first and
+       the last shown block of every panel get 4px of room instead. "Shown" matters: the edit
+       panels end in fields only some layers use (換照片, the gradient and photo background
+       fields), and a hidden last child would leave the real last field flush with the edge.
+       The room is padding, so it must sit on a wrapper: on a bare button it would only make
+       the button taller (hence the div around #replacePhoto).
+       (Commit 6d224d3 only covered the first field of the .props panels; this replaces it.) */
+    :is(details.section, details.sub) > summary ~ :not([hidden]):not(summary ~ :not([hidden]) ~ *) { padding-top: 4px; }
+    :is(details.section, details.sub) > summary ~ :not([hidden]):not(:has(~ :not([hidden]))) { padding-bottom: 4px; }
   }
   @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.99); } to { opacity: 1; transform: none; } }
   details.section.props:not([hidden]) { animation: pop var(--t-pop) var(--ease-out) backwards; }
@@ -370,6 +396,7 @@
   @media (max-width: 1100px) { .shell { grid-template-columns: 300px minmax(0, 1fr); gap: 16px; } .templates { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 900px) {
     :root { --appbar: 52px; }
+    html { scroll-padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 8px); }
     .shell { display: flex; flex-direction: column; padding: 0 0 calc(var(--tabbar) + env(safe-area-inset-bottom) + 12px); }
     .main { order: -1; position: sticky; top: var(--appbar); z-index: 20; padding: 8px 10px 0; background: linear-gradient(var(--bg) 85%, transparent); }
     .main.tall { position: static; }
@@ -419,6 +446,7 @@
   .appbar button.busy::before { content: ''; width: 16px; height: 16px; flex: none; border-radius: 50%;
     border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; }
   .appbar button.done .state-ic { display: block; animation: pop var(--t-pop) var(--spring-pop) backwards; }
+  .appbar button.retry .lbl { display: inline; white-space: nowrap; } /* "tap again" must be readable even where labels are icon-only */
   .appbar button.done .state-ic path { stroke-dasharray: 22; stroke-dashoffset: 22; animation: draw 380ms var(--ease-out) 80ms forwards; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes draw { to { stroke-dashoffset: 0; } }
@@ -430,6 +458,8 @@
 
   /* theme switch: the script clips the new snapshot open from the button, no default cross-fade */
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  /* The transition overlay covers the page while it plays; clicks must go through to the page. */
+  ::view-transition { pointer-events: none; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
@@ -451,6 +481,7 @@
     <button id="openProj" class="ghost" title="開啟專案檔（.igproj.json）"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">開啟專案</span></button>
     <button id="saveProj" class="ghost" title="Ctrl+S"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3"/><path d="M8 21v-6h8v6"/></svg><span class="lbl">儲存專案</span></button>
     <input type="file" id="projFile" accept=".json,application/json" hidden>
+    <button id="shareOut" class="ghost" hidden disabled title="分享到照片或 Instagram"><svg class="ic" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 11v9h14v-9"/></svg><span class="lbl">分享圖片</span></button>
     <button id="export" class="primary" disabled title="下載全部（zip）"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v3h16v-3"/></svg><span class="lbl">下載全部</span></button>
   </div>
 </header>
@@ -644,12 +675,13 @@
             <input type="color" id="shadowColor">
           </div>
           <div class="inline" style="margin-top:6px">
-            <span class="label" style="margin:0;flex:none">X</span><input type="number" id="shadowX" step="1">
-            <span class="label" style="margin:0;flex:none">Y</span><input type="number" id="shadowY" step="1">
+            <span class="label" style="margin:0;flex:none">X</span><input type="number" id="shadowX" min="-2000" max="2000" step="1">
+            <span class="label" style="margin:0;flex:none">Y</span><input type="number" id="shadowY" min="-2000" max="2000" step="1">
             <button id="shadowOff" title="清除陰影">清除</button>
           </div>
         </div>
-        <button id="replacePhoto" class="wide photo-only">換照片</button>
+        <!-- wrapped so the 4px ring room below the last block of a panel sits outside the button -->
+        <div class="photo-only"><button id="replacePhoto" class="wide">換照片</button></div>
       </details>
 
       <details class="section props" id="textProps" open hidden>
@@ -730,7 +762,7 @@
     <section class="card group group-layout tips active" data-group="layout">
       <details class="section">
       <summary>操作提示</summary>
-      <p>拖曳移動；四角等比縮放、四邊中點改框的寬高；上方圓點旋轉（<kbd>Shift</kbd> 每 15°）。靠近中心／切割線／邊緣會吸附，<kbd>Alt</kbd> 暫停吸附。</p>
+      <p>拖曳移動；四角等比縮放、四邊中點改框的寬高；框上方的圓點旋轉（貼著畫布上緣時在下方；<kbd>Shift</kbd> 每 15°）。靠近中心／切割線／邊緣會吸附，<kbd>Alt</kbd> 暫停吸附。</p>
       <p>雙擊照片裁切、雙擊文字改字。文字用四角縮放會直接改字級。鎖住的圖層在畫布上點不到，要從圖層清單選。</p>
       <p>方向鍵微調（<kbd>Shift</kbd> 10px），<kbd>Delete</kbd> 刪除，右鍵調圖層順序，<kbd>Ctrl</kbd>+<kbd>S</kbd> 儲存。</p>
       </details>
@@ -798,7 +830,9 @@
         <div class="stage-wrap" id="wrap">
           <div class="stage-inner" id="stageInner">
             <canvas id="stage" role="img" aria-label="輪播排版預覽"></canvas>
-            <canvas id="ui" role="group" aria-label="編輯操作區：拖曳移動、拉角縮放、旋轉圖層；鍵盤請用左側面板"></canvas>
+            <!-- The panels sit to the left on desktop but under tabs below the stage on phones, so the
+                 label names them without a direction. -->
+            <canvas id="ui" role="group" aria-label="編輯操作區：拖曳移動、拉角縮放、旋轉圖層；鍵盤請用設定面板"></canvas>
           </div>
         </div>
       </div>
@@ -1213,18 +1247,185 @@
     return cv;
   }
 
+  // Safari (WebKit) has no CanvasRenderingContext2D.filter: setting it is a silent no-op, so every
+  // adjustment, preset and the blurred background would vanish from the editor and the export.
+  // Without it, buildFiltered computes the same filters from the pixels instead.
+  const CANVAS_FILTER = 'filter' in CanvasRenderingContext2D.prototype;
+  // The pixel blur runs on the main thread and costs time per pixel: at the native filter's 3000 px
+  // working width it took ~4.3 s in Playwright's WebKit on a desktop (1800 px: ~1.9 s). So it works
+  // at a lower resolution: never wider than FALLBACK_BLUR_W, and only as wide as leaves a blur of
+  // about FALLBACK_SIGMA working pixels. The result is enlarged with smoothing, and a Gaussian that
+  // wide has no detail for the enlargement to lose. A 40 px blur now runs on ~100 px; the slow case
+  // left is a blur of 1-2 px on a large photo, which hits the cap (~0.4 s measured).
+  const FALLBACK_BLUR_W = 1800;
+  const FALLBACK_SIGMA = 2;
+  // Colour-only adjustments in the fallback work on one canvas the size of the result. iOS and iPadOS
+  // Safari refuse a canvas over about 16.7 MP (4096 x 4096), so there that canvas is kept at most
+  // 4096 wide and under 16 MP in area (a tall photo hits the area cap first). Desktop Safari has no
+  // such limit, and the cap would export a colour-adjusted wide photo softer, so every other browser
+  // without ctx.filter keeps the photo's own width up to MAX_FILTER_W, as the filter path does, with
+  // no side over FALLBACK_MAX_SIDE. Chromium has ctx.filter and never comes here.
+  // (iPadOS reports itself as a Mac; its touch points give it away.)
+  const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const FALLBACK_COLOUR_W = IOS ? 4096 : MAX_FILTER_W;
+  const FALLBACK_COLOUR_PX = IOS ? 16e6 : Infinity;
+  const FALLBACK_MAX_SIDE = 16384;
+  const fallbackColourW = (natW, natH) => Math.max(1, Math.min(natW, FALLBACK_COLOUR_W,
+    Math.floor(Math.sqrt(FALLBACK_COLOUR_PX * natW / natH)), Math.floor(FALLBACK_MAX_SIDE * natW / natH)));
+  // Shrinks by halves to within 4x of `tw`, so the last drawImage averages neighbouring pixels
+  // instead of sampling a few of them out of a much larger photo.
+  function halveTo(src, natW, natH, tw) {
+    while (natW >= tw * 4) {
+      const w = Math.ceil(natW / 2), h = Math.ceil(natH / 2);
+      const cv = makeCanvas(w, h), c = cv.getContext('2d');
+      c.imageSmoothingQuality = 'high';
+      c.drawImage(src, 0, 0, natW, natH, 0, 0, w, h);
+      src = cv; natW = w; natH = h;
+    }
+    return { src, natW, natH };
+  }
+
+  // brightness() contrast() saturate() grayscale() with the Filter Effects formulas, in the order
+  // filterCss writes them, each step clamped to 0..1 like a separate filter primitive.
+  // This runs over every pixel of a photo of up to 16 MP on the main thread, so it is one pass with
+  // no calls per pixel. Brightness and contrast act per channel: a 256-entry table (0..255 scale).
+  // saturate(s) and grayscale(g) are the same operation, "pull each channel towards a luma":
+  // c' = Y + k (c - Y), with k = s or 1 - g. Each matrix row sums to 1, so the result can only
+  // leave 0..255 when saturate oversaturates (s > 1); that is the one clamp done by hand, and only
+  // when grayscale still has to read the value. The final write into the Uint8ClampedArray rounds
+  // and clamps the rest.
+  function adjustPixels(d, l) {
+    const b = Number(l.bright) / 100, k = Number(l.contrast) / 100, s = Number(l.satur) / 100;
+    const a = 1 - Math.min(1, Math.max(0, Number(l.fade) / 100)); // grayscale(g) uses a = 1 - g
+    const lut = new Float64Array(256);
+    for (let i = 0; i < 256; i++) {
+      const v = Math.min(1, i / 255 * b);
+      lut[i] = Math.fround(Math.min(1, Math.max(0, (v - 0.5) * k + 0.5))) * 255;
+    }
+    const n = d.length;
+    const doS = s !== 1, doG = a !== 1, clampS = s > 1 && doG;
+    if (!doS && !doG) {
+      const t = Uint8ClampedArray.from(lut); // rounded once instead of per pixel
+      for (let i = 0; i < n; i += 4) { d[i] = t[d[i]]; d[i + 1] = t[d[i + 1]]; d[i + 2] = t[d[i + 2]]; }
+      return;
+    }
+    for (let i = 0; i < n; i += 4) {
+      let r = lut[d[i]], g = lut[d[i + 1]], bl = lut[d[i + 2]];
+      if (doS) {
+        const y = 0.213 * r + 0.715 * g + 0.072 * bl;
+        r = y + s * (r - y); g = y + s * (g - y); bl = y + s * (bl - y);
+        if (clampS) {
+          r = r < 0 ? 0 : r > 255 ? 255 : r;
+          g = g < 0 ? 0 : g > 255 ? 255 : g;
+          bl = bl < 0 ? 0 : bl > 255 ? 255 : bl;
+        }
+      }
+      if (doG) {
+        const y = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+        r = y + a * (r - y); g = y + a * (g - y); bl = y + a * (bl - y);
+      }
+      d[i] = r; d[i + 1] = g; d[i + 2] = bl;
+    }
+  }
+  const isNeutral = l => !l || (l.bright === 100 && l.contrast === 100 && l.satur === 100 && l.fade === 0);
+
+  // Three box blurs in a row approximate a Gaussian; CSS blur(Npx) is a Gaussian with sigma N.
+  // Box widths from the usual "boxes for Gauss" fit, returned as radii.
+  function boxRadii(sigma) {
+    const w = Math.sqrt(4 * sigma * sigma + 1); // sqrt(12 sigma² / 3 + 1)
+    let wl = Math.floor(w);
+    if (wl % 2 === 0) wl--;
+    const m = Math.round((12 * sigma * sigma - 3 * wl * wl - 12 * wl - 9) / (-4 * wl - 4));
+    return [0, 1, 2].map(i => ((i < m ? wl : wl + 2) - 1) / 2);
+  }
+  // One box pass along rows (horiz) or columns, from `a` into `o`, past the edges repeating the edge
+  // pixel. Columns are walked a whole row at a time with one running sum per channel, which keeps
+  // memory access sequential.
+  function boxPass(a, o, w, h, r, horiz) {
+    const d = 2 * r + 1, row = w * 4, inv = 1 / d;
+    if (horiz) {
+      for (let y = 0; y < h; y++) {
+        const base = y * row, lastPx = base + row - 4;
+        let s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+        for (let j = -r; j <= r; j++) {
+          const q = base + (j < 0 ? 0 : j >= w ? w - 1 : j) * 4;
+          s0 += a[q]; s1 += a[q + 1]; s2 += a[q + 2]; s3 += a[q + 3];
+        }
+        for (let x = 0, p = base; x < w; x++, p += 4) {
+          o[p] = s0 * inv; o[p + 1] = s1 * inv; o[p + 2] = s2 * inv; o[p + 3] = s3 * inv;
+          const ad = x + r + 1 >= w ? lastPx : p + (r + 1) * 4, sb = x - r < 0 ? base : p - r * 4;
+          s0 += a[ad] - a[sb]; s1 += a[ad + 1] - a[sb + 1]; s2 += a[ad + 2] - a[sb + 2]; s3 += a[ad + 3] - a[sb + 3];
+        }
+      }
+      return;
+    }
+    const sums = new Int32Array(row);
+    for (let j = -r; j <= r; j++) {
+      const s = (j < 0 ? 0 : j >= h ? h - 1 : j) * row;
+      for (let k = 0; k < row; k++) sums[k] += a[s + k];
+    }
+    for (let y = 0; y < h; y++) {
+      const out = y * row, ad = y + r + 1, sb = y - r;
+      const add = (ad >= h ? h - 1 : ad) * row, sub = (sb < 0 ? 0 : sb) * row;
+      for (let k = 0; k < row; k++) {
+        o[out + k] = sums[k] * inv;
+        sums[k] += a[add + k] - a[sub + k];
+      }
+    }
+  }
+  function blurPixels(img, sigma) {
+    const { data, width: w, height: h } = img;
+    let opaque = true;
+    for (let i = 3; i < data.length; i += 4) if (data[i] !== 255) { opaque = false; break; }
+    if (!opaque) { // blur premultiplied colour so transparent pixels do not bleed black
+      for (let i = 0; i < data.length; i += 4) {
+        const al = data[i + 3] / 255;
+        data[i] *= al; data[i + 1] *= al; data[i + 2] *= al;
+      }
+    }
+    const tmp = new Uint8ClampedArray(data.length);
+    for (const r of boxRadii(sigma)) {
+      if (r < 1) continue;
+      boxPass(data, tmp, w, h, r, true);
+      boxPass(tmp, data, w, h, r, false);
+    }
+    if (!opaque) {
+      for (let i = 0; i < data.length; i += 4) {
+        const al = data[i + 3];
+        if (al && al < 255) { const f = 255 / al; data[i] *= f; data[i + 1] *= f; data[i + 2] *= f; }
+      }
+    }
+  }
+  // The pixel version of `c.filter = filterCss(adj) + blur(bs)` on the canvas `c` already holds.
+  function filterPixels(c, w, h, adj, bs) {
+    const colour = !isNeutral(adj);
+    if (!colour && !(bs > 0)) return;
+    let img;
+    // A tainted source (see unreadableMsg) would throw here, out of render(), on every frame; it is
+    // left unfiltered instead so editing keeps working.
+    try { img = c.getImageData(0, 0, w, h); } catch { return; }
+    if (colour) adjustPixels(img.data, adj);
+    if (bs > 0) blurPixels(img, bs);
+    c.putImageData(img, 0, 0);
+  }
+
   // Renders `src` through a CSS filter once. `blurStrip` is in strip pixels and is converted to the
   // source's own scale, so the editor view and the full-resolution export blur by the same amount.
   // The source is edge-extended first so the blur does not fade into transparency at the border.
-  function buildFiltered(src, natW, natH, drawW, css, blurStrip, slot, key) {
+  // `adj` is the layer whose brightness/contrast/saturation/fade apply, or null for none.
+  function buildFiltered(src, natW, natH, drawW, adj, blurStrip, slot, key) {
     if (slot) {
       const hit = filterCache.get(slot);
       if (hit && hit.key === key) return hit.res;
     }
+    const css = adj ? filterCss(adj) : 'none';
     const blurred = blurStrip > 0;
-    const tw = blurred ? Math.min(natW, Math.max(600, Math.min(3000, Math.ceil(drawW * 1.5))))
-      : Math.min(natW, MAX_FILTER_W);
+    const tw = !blurred ? (CANVAS_FILTER ? Math.min(natW, MAX_FILTER_W) : fallbackColourW(natW, natH))
+      : CANVAS_FILTER ? Math.min(natW, Math.max(600, Math.min(3000, Math.ceil(drawW * 1.5))))
+      : Math.min(natW, Math.max(64, Math.min(FALLBACK_BLUR_W, Math.ceil(drawW * 1.5),
+        Math.ceil(drawW * FALLBACK_SIGMA / blurStrip))));
     const th = Math.max(1, Math.round(tw * natH / natW));
+    if (blurred && !CANVAS_FILTER) ({ src, natW, natH } = halveTo(src, natW, natH, tw));
     const bs = blurred ? blurStrip * tw / Math.max(1, drawW) : 0;
     const m = Math.ceil(bs * 2);
     if (m === 0) {
@@ -1232,8 +1433,9 @@
       const only = makeCanvas(tw, th);
       const c = only.getContext('2d');
       c.imageSmoothingQuality = 'high';
-      c.filter = css && css !== 'none' ? css : 'none';
+      if (CANVAS_FILTER) c.filter = css && css !== 'none' ? css : 'none';
       c.drawImage(src, 0, 0, natW, natH, 0, 0, tw, th);
+      if (!CANVAS_FILTER) filterPixels(c, tw, th, adj, 0);
       const r = { cv: only, sx: 0, sy: 0, sw: tw, sh: th };
       if (slot) filterCache.set(slot, { key, res: r });
       return r;
@@ -1252,6 +1454,12 @@
       ec.drawImage(src, natW - 1, natH - 1, 1, 1, m + tw, m + th, m, m);
     }
     ec.drawImage(src, 0, 0, natW, natH, m, m, tw, th);
+    if (!CANVAS_FILTER) {
+      filterPixels(ec, ext.width, ext.height, adj, bs);
+      const res = { cv: ext, sx: m, sy: m, sw: tw, sh: th };
+      if (slot) filterCache.set(slot, { key, res });
+      return res;
+    }
     const out = makeCanvas(ext.width, ext.height);
     const oc = out.getContext('2d');
     const parts = [css, bs > 0 ? `blur(${bs}px)` : ''].filter(x => x && x !== 'none');
@@ -1481,7 +1689,7 @@
     if (hasFilter(l)) {
       // Cache the editor-resolution result; the export builds a one-off at full resolution.
       const key = `${l.imgId}|${tag}|${filterCss(l)}|${l.blurPx}|${l.blurPx > 0 ? Math.round(p.dw / 48) : 0}`;
-      const f = buildFiltered(src, natW, natH, p.dw, filterCss(l), l.blurPx, full ? null : l, key);
+      const f = buildFiltered(src, natW, natH, p.dw, l, l.blurPx, full ? null : l, key);
       drawPhoto(c, l, f.cv, p, f.sx, f.sy, f.sw, f.sh);
     } else {
       filterCache.delete(l); // no filter left: let the cached canvas go
@@ -1555,7 +1763,7 @@
     const natW = src.naturalWidth || src.width, natH = src.naturalHeight || src.height;
     const s = Math.max(W / natW, H / natH), dw = natW * s, dh = natH * s;
     const key = `${photo.imgId}|${tag}|${blur}|${Math.round(dw / 48)}`;
-    const f = blur > 0 ? buildFiltered(src, natW, natH, dw, 'none', blur, full ? null : BG_SLOT, key) : null;
+    const f = blur > 0 ? buildFiltered(src, natW, natH, dw, null, blur, full ? null : BG_SLOT, key) : null;
     if (f) c.drawImage(f.cv, f.sx, f.sy, f.sw, f.sh, (W - dw) / 2, (H - dh) / 2, dw, dh);
     else c.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
     const dim = (parseFloat($('bgDim').value) || 0) / 100;
@@ -1641,10 +1849,21 @@
   });
 
   let rafPending = false, sceneDirty = true, previewTimer = 0;
+  let sceneRev = 0; // bumps on every scene change, so prepared share files can tell they are stale
+  // Slides kept after the browser refused to open the share sheet (see the 分享圖片 handler).
+  // A scene or format change makes them stale, so the button stops saying 再按一次 right then.
+  let readyShare = null;
+  function dropShareRetry() {
+    if (!readyShare) return;
+    readyShare = null;
+    const btn = $('shareOut');
+    btn.classList.remove('retry');
+    if (!btn.classList.contains('busy')) btn.querySelector('.lbl').textContent = btn.dataset.label;
+  }
   function schedulePreviews() { clearTimeout(previewTimer); previewTimer = setTimeout(drawPreviews, 120); }
   // `sceneChanged=false` only redraws the selection/guide layer (hover, guides) — much cheaper.
   function render(sceneChanged = true) {
-    if (sceneChanged) sceneDirty = true;
+    if (sceneChanged) { sceneDirty = true; sceneRev++; dropShareRetry(); }
     if (rafPending) return;
     rafPending = true;
     requestAnimationFrame(now => {
@@ -1652,6 +1871,8 @@
       frameNow = now;
       sizeCanvases();
       if (sceneDirty) {
+        // What is drawn must be what undo, autosave and a project file would give back.
+        for (const l of state.layers) keepInRange(l);
         const cached = drag && dragCache && dragCache.l === drag.l && dragCache.w === view.width && dragCache.h === view.height;
         if (cached) {
           drawFromCache(); // previews/info/autosave wait until the gesture ends
@@ -1780,7 +2001,7 @@
     c.strokeStyle = '#4f8cff';
     c.strokeRect(-l.w / 2, -l.h / 2, l.w, l.h);
     const ry = rotHandleY(l);
-    c.beginPath(); c.moveTo(0, ry > 0 ? -l.h / 2 : -l.h / 2); c.lineTo(0, ry); c.lineWidth = 1.5 * k; c.stroke();
+    c.beginPath(); c.moveTo(0, ry > l.h / 2 ? l.h / 2 : -l.h / 2); c.lineTo(0, ry); c.lineWidth = 1.5 * k; c.stroke();
     const hs = HANDLE_PX * k;
     c.fillStyle = '#fff';
     c.lineWidth = 1.5 * k;
@@ -1808,13 +2029,17 @@
     if (l.shape !== 'circle' && l.kind !== 'text') h.push([0, -1], [0, 1], [-1, 0], [1, 0]);
     return h;
   };
-  // Rotate handle sits above the frame; if that would fall outside the strip, it goes just inside.
+  // Rotate handle sits above the frame. A layer pushed against the top of the strip (靠上) has no
+  // room there, so the handle goes the same distance below the frame instead. Only when neither
+  // side is on the strip does it go inside, and then no deeper than the top quarter of the frame:
+  // a fixed 28 CSS px from the top edge would land in the middle of a short text box at low zoom,
+  // where grabbing the box to move it would rotate it instead.
   function rotHandleY(l) {
-    const k = cssToStrip();
-    let y = -l.h / 2 - ROT_HANDLE_PX * k;
-    const wy = centre(l).y + rotate(0, y, l.rot).y;
-    if (wy < 0 || wy > stripH()) y = -l.h / 2 + ROT_HANDLE_PX * k;
-    return y;
+    const off = ROT_HANDLE_PX * cssToStrip();
+    const onStrip = y => { const wy = centre(l).y + rotate(0, y, l.rot).y; return wy >= 0 && wy <= stripH(); };
+    if (onStrip(-l.h / 2 - off)) return -l.h / 2 - off;
+    if (onStrip(l.h / 2 + off)) return l.h / 2 + off;
+    return -l.h / 2 + Math.min(off, l.h * 0.25);
   }
 
   // ---------- IG preview: copies pixels from the editor view, no image encoding ----------
@@ -1829,9 +2054,9 @@
     previewKey = key;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const mk = w => makeCanvas(w, Math.round(w * H / SLIDE_W));
-    $('swipe').innerHTML = '';
-    $('thumbs').innerHTML = '';
-    $('dots').innerHTML = '';
+    $('swipe').replaceChildren();
+    $('thumbs').replaceChildren();
+    $('dots').replaceChildren();
     for (let i = 0; i < n; i++) {
       $('swipe').appendChild(mk(Math.round(320 * dpr)));
       const fig = document.createElement('figure');
@@ -1921,13 +2146,21 @@
   previewGate.observe($('swipe').closest('.row'));
   previewGate.observe($('profile'));
 
+  // Photo names come from file names and project files, so this paragraph is built from text
+  // nodes: nothing user-supplied is ever parsed as HTML.
+  const warnLine = text => {
+    const sp = document.createElement('span');
+    sp.className = 'warn';
+    sp.textContent = text;
+    return [document.createElement('br'), sp];
+  };
   function updateInfo() {
     const n = slideCount(), W = stripW(), H = stripH();
     const blurry = state.layers.filter(l => l.img && photoRect(l).s > 1.05);
     const empty = state.layers.filter(isSlot).length;
-    $('info').innerHTML = `輸出：${n} 張 × ${SLIDE_W}×${H}，整條 ${W}×${H}` +
-      (empty ? `<br><span class="warn">還有 ${empty} 個空白欄位（輸出時會是背景色）。</span>` : '') +
-      (blurry.length ? `<br><span class="warn">${blurry.map(l => l.name).join('、')} 被放大超過原始解析度，可能會糊。</span>` : '');
+    $('info').replaceChildren(`輸出：${n} 張 × ${SLIDE_W}×${H}，整條 ${W}×${H}`,
+      ...(empty ? warnLine(`還有 ${empty} 個空白欄位（輸出時會是背景色）。`) : []),
+      ...(blurry.length ? warnLine(`${blurry.map(l => l.name).join('、')} 被放大超過原始解析度，可能會糊。`) : []));
     $('stage').setAttribute('aria-label', `輪播排版預覽：${n} 張，${state.layers.length} 個圖層`);
     syncStageZoom();
     syncOffNote();
@@ -1970,8 +2203,9 @@
   });
 
   // ---------- motion helpers ----------
-  // Everything here is presentation only. Reduced motion turns all of it off; the curves come
-  // from the CSS tokens so CSS and script motion feel the same.
+  // Everything here is presentation only. Reduced motion turns all of it off. Only SPRING_CSS
+  // reads its curve from a CSS token (--spring); EASE_OUT_CSS, EASE_IN_CSS and springAt() are
+  // copies of the CSS values kept in sync by hand, so change them together with the tokens.
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const cssToken = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   const HAS_LINEAR = CSS.supports('transition-timing-function', 'linear(0, 1)');
@@ -1982,7 +2216,9 @@
   // Canvas: a layer can carry transient, never-saved `_in` (fade and settle in after being added)
   // and `_g` (glide from where a toolbar action moved it). Both only change how the editor view
   // draws it — x/y/w/h are already final — so undo, autosave, hit-testing and export never see an
-  // in-between value. Anything that starts a direct manipulation calls stopMotion() first.
+  // in-between value. A direct manipulation ends every running motion first (stopMotion()):
+  // a pointerdown on the canvas, an arrow-key nudge, and the panel sliders and colour pickers
+  // (bindProp / bindColour).
   const ENTER_MS = 440, GLIDE_MS = 420;
   let frameNow = 0;
   // Damped spring (~2% overshoot) as a function of progress 0..1, matching the CSS --spring token.
@@ -1992,13 +2228,19 @@
   // clear — keeping render() looping forever, which keeps re-deferring autosave, undo and previews.
   // So hidden layers never start a motion, never count as moving, and drop any motion when hidden.
   function markEnter(l, delay = 0) { if (l && !l.hidden && !reduceMotion()) l._in = { t0: performance.now(), delay }; }
+  // Only a picture or a plain shape may grow or shrink mid-glide. Text is drawn at its font size
+  // whatever its box is, and borders, shadows and line widths are absolute, so scaling the frame
+  // would shrink those to a fraction and back; they only travel.
+  const glideScales = l => l.kind !== 'text' && l.kind !== 'draw' && !(isBlock(l) && isOpen(l)) &&
+    !(l.border > 0) && !hasShadow(l);
   function markGlide(l, from) {
     if (l.hidden || reduceMotion()) return;
     const sx = from.w / l.w, sy = from.h / l.h;
     if (!(Math.abs(sx - sy) < 0.01)) return; // a non-uniform squash would distort the picture mid-glide
+    const s = glideScales(l) ? sx : 1;
     const dx = from.x + from.w / 2 - (l.x + l.w / 2), dy = from.y + from.h / 2 - (l.y + l.h / 2);
-    if (Math.hypot(dx, dy) < 0.5 && Math.abs(sx - 1) < 0.002) return;
-    l._g = { t0: performance.now(), dx, dy, s: sx };
+    if (Math.hypot(dx, dy) < 0.5 && Math.abs(s - 1) < 0.002) return;
+    l._g = { t0: performance.now(), dx, dy, s };
   }
   // This frame's display offset for a layer, or null. Finished motions clear themselves.
   function motionOf(l) {
@@ -2032,8 +2274,9 @@
   // Layer list: the rows are rebuilt on every change, so motion is worked out by matching rows to
   // their layer — rows that moved slide from where they were (FLIP), new rows ease in. Only a
   // visible list animates (selecting a layer switches to the 編輯 tab, so in practice this is
-  // drag-reordering). When most rows are "new" (undo, opening a project) the list was replaced
-  // rather than edited, and it switches without motion.
+  // drag-reordering). When every row is "new" (undo and redo rebuild every layer from a snapshot,
+  // however few there are) or most of them are (opening a project), the list was replaced rather
+  // than edited, and it switches without motion.
   function rowTops(ul) {
     if (reduceMotion() || !ul.offsetParent) return null;
     const m = new Map();
@@ -2043,7 +2286,8 @@
   function animateRows(ul, before) {
     if (!before || !before.size || !ul.offsetParent) return;
     const rows = [...ul.children];
-    if (rows.filter(li => !before.has(li.__layer)).length > Math.max(2, before.size / 2)) return;
+    const fresh = rows.filter(li => !before.has(li.__layer)).length;
+    if (fresh === rows.length || fresh > Math.max(2, before.size / 2)) return;
     let k = 0;
     for (const li of rows) {
       const top = before.get(li.__layer);
@@ -2072,10 +2316,11 @@
     }
     return isBlock(l) ? '色塊' : '空白照片欄位';
   }
+  function hasExportable() { return state.layers.some(l => l.img || l.kind === 'text' || l.kind === 'draw' || isBlock(l)); }
   function renderLayerList() {
     const ul = $('layers');
     const before = rowTops(ul);
-    ul.innerHTML = '';
+    ul.replaceChildren();
     for (let i = state.layers.length - 1; i >= 0; i--) {
       const l = state.layers[i];
       const li = document.createElement('li');
@@ -2140,7 +2385,9 @@
     const wasHidden = $('editor').hidden;
     $('editor').hidden = !has;
     if (wasHidden && has) fitW = 0; // the wrapper had no width while the editor was hidden
-    $('export').disabled = !state.layers.some(l => l.img || l.kind === 'text' || l.kind === 'draw' || isBlock(l));
+    // A busy button stays disabled until its own job ends (setDone); a rebuild mid-export must not
+    // re-enable it, or a second click starts a second export alongside the first.
+    for (const id of ['export', 'shareOut']) if (!$(id).classList.contains('busy')) $(id).disabled = !hasExportable();
     document.querySelectorAll('[data-act]').forEach(b => { b.disabled = !canRun(selected(), b.dataset.act); });
     syncBgPhotoOptions();
     syncProps();
@@ -2252,7 +2499,7 @@
     const sel = $('bgPhoto'), cur = bgPhotoWanted || sel.value;
     const seen = new Map();
     for (const l of state.layers) if (l.img && !seen.has(l.imgId)) seen.set(l.imgId, l.name);
-    sel.innerHTML = '';
+    sel.replaceChildren();
     for (const [id, name] of seen) {
       const o = document.createElement('option');
       o.value = id; o.textContent = name;
@@ -2299,22 +2546,53 @@
   const editTarget = () => { const l = selected(); return editable(l) ? l : null; };
   const textTarget = () => { const l = editTarget(); return l && l.kind === 'text' ? l : null; };
 
+  // A settings box (張數, the background angle) takes whatever is typed into it, clamped to the box's
+  // own min..max. NaN when the field holds no number.
+  function fieldNumber(el) {
+    const v = parseFloat(el.value), lo = parseFloat(el.min), hi = parseFloat(el.max);
+    if (!Number.isFinite(v)) return NaN;
+    return clamp(v, Number.isFinite(lo) ? lo : -Infinity, Number.isFinite(hi) ? hi : Infinity);
+  }
+  // While a box is being typed in, it is left alone (rewriting it mid-number moves the caret and
+  // eats a typed "."), except to show the clamped value once what is typed is out of range and more
+  // digits cannot bring it back: 300 in a 20-200 box shows 200 at once, but a "1" on its way to
+  // "150" stays until the box is left (the layer already holds 20 meanwhile).
+  function showClamped(el, v) {
+    const n = parseFloat(el.value), lo = parseFloat(el.min);
+    if (n !== v && !(n >= 0 && lo > 0 && n < lo)) el.value = v;
+  }
   function bindProp(id, key, numId, fix) {
-    const apply = v => {
-      const l = editTarget();
-      if (!l || Number.isNaN(v)) return;
-      l[key] = v;
-      if (fix) fix(l);
-      syncProps();
-      render();
-    };
-    $(id).addEventListener('input', e => apply(parseFloat(e.target.value)));
-    if (numId) $(numId).addEventListener('input', e => apply(parseFloat(e.target.value)));
+    const els = [$(id), numId && $(numId)].filter(Boolean);
+    for (const el of els) {
+      const other = els.find(x => x !== el);
+      // A layer prop goes through the very rule undo steps, autosave records and project files are
+      // cleaned with on the way back in (cleanNum: NUM_RANGES, an angle wraps to the same angle), so
+      // a value drawn now is never changed by undoing some later, unrelated step. The box's own
+      // min..max is not used: rotation wraps, and 字級 / 字距 / shadow may legitimately go past the
+      // box at taller ratios (the corner handles and ratio changes reach those values too).
+      el.addEventListener('input', () => {
+        const l = editTarget(), v = cleanNum(key, parseFloat(el.value), NaN);
+        if (!l || Number.isNaN(v)) return;
+        stopMotion();
+        l[key] = v;
+        if (fix) fix(l);
+        if (el.type === 'number') {
+          if (other) other.value = v;
+          showClamped(el, v);
+        } else {
+          syncProps();
+        }
+        render();
+      });
+      // Leaving the box shows what the layer really holds (also after an empty box or a locked layer).
+      if (el.type === 'number') el.addEventListener('change', () => { if (selected()) syncProps(); });
+    }
   }
   function bindColour(id, key, relist) {
     $(id).addEventListener('input', e => {
       const l = editTarget();
       if (!l) return;
+      stopMotion();
       l[key] = e.target.value;
       if (relist) paintLayerSwatch(l);
       render();
@@ -2388,7 +2666,7 @@
   // ---------- text ----------
   function buildFontSelect() {
     const sel = $('font');
-    sel.innerHTML = '';
+    sel.replaceChildren();
     for (const [g, label] of FONT_GROUPS) {
       const og = document.createElement('optgroup');
       og.label = label;
@@ -2591,9 +2869,150 @@
       pts: null, baseW: 0, baseH: 0 };
   }
 
+  // ---------- untrusted layer data ----------
+  // Project files, autosave records and undo snapshots all pass through sanitizeLayer and
+  // sanitizeSettings before anything reaches the canvas, the DOM or element.style: colours must be
+  // hex, the font must be in the catalogue, enums must be known values, numbers finite and inside
+  // the range of the control that edits them, and text is text. Anything else gets the default.
+  const LAYER_DEFAULTS = newLayer({}, MIN_SIZE, MIN_SIZE, 0, 0);
+  const HEX_RE = /^#[0-9a-f]{3,8}$/i;
+  const hexOr = (v, d) => (typeof v === 'string' && HEX_RE.test(v) ? v : d);
+  const COLOUR_PROPS = new Set(['fill', 'borderColor', 'shadowColor', 'color', 'strokeColor', 'textBg']);
+  const BOOL_PROPS = new Set(['locked', 'hidden', 'flipH', 'flipV', 'bold', 'italic', 'vertical', 'textBgOn']);
+  const ENUM_PROPS = {
+    kind: new Set(['photo', 'block', 'text', 'draw']),
+    shape: new Set(['rect', 'rounded', 'ellipse', 'circle', 'triangle', 'star', 'heart', 'bubble', 'line', 'arrow']),
+    align: new Set(['left', 'center', 'right']),
+  };
+  // [min, max] of the slider or field that edits each number (f2: every one of them must lie inside
+  // these). Strip-pixel values are also rescaled when the ratio changes (see STRIP_PX_PROPS), so
+  // their range is widened by the largest possible ratio step, 1920 / 566, plus a hair for the
+  // rounding of a chain of steps. The frame and a stroke's base size have no control: moving,
+  // resizing and re-fitting (a long line of text, 高度填滿 on a long thin frame) can take them far
+  // past the strip, so they only get a generous bound, which render() also holds every live layer
+  // to (keepInRange). The text corner handles stop at FONT_PX_MAX for the same reason.
+  const RATIOS = new Set([1350, 1080, 1440, 1920, 566]);
+  const MIN_H = Math.min(...RATIOS), MAX_H = Math.max(...RATIOS);
+  const RATIO_SPAN = MAX_H / MIN_H;
+  const FRAME_MAX = 1e7;
+  const FONT_PX_MAX = 2000; // the 字級 box's max, at the smallest ratio
+  const NUM_RANGES = {
+    x: [-FRAME_MAX, FRAME_MAX], y: [-FRAME_MAX, FRAME_MAX], w: [0.01, FRAME_MAX], h: [0.01, FRAME_MAX],
+    baseW: [0, FRAME_MAX], baseH: [0, FRAME_MAX],
+    rot: [-180, 180], radius: [0, 100], border: [0, 80], opacity: [10, 100], zoom: [1, 5], px: [-1, 1], py: [-1, 1],
+    shadowBlur: [0, 120], shadowX: [-2000, 2000], shadowY: [-2000, 2000], lineW: [1, 120],
+    bright: [20, 200], contrast: [20, 200], satur: [0, 250], warmth: [-100, 100], fade: [0, 100], blurPx: [0, 120],
+    fontSize: [8, FONT_PX_MAX], lineHeight: [0.8, 3], letterSpacing: [-20, 120], strokeWidth: [0, 60], textBgPad: [0, 200],
+  };
+  const FRAME_PROPS = new Set(['x', 'y', 'w', 'h']);
+  for (const k of STRIP_PX_PROPS) {
+    if (!FRAME_PROPS.has(k)) {
+      const [lo, hi] = NUM_RANGES[k], hair = 1 + 1e-9;
+      NUM_RANGES[k] = [lo < 0 ? lo * RATIO_SPAN * hair : lo / RATIO_SPAN / hair, hi * RATIO_SPAN * hair];
+    }
+  }
+  const toNum = v => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN);
+  function cleanNum(k, v, d) {
+    let n = toNum(v);
+    if (!Number.isFinite(n)) return d;
+    if (k === 'rot' && Math.abs(n) > 180) n = ((n + 180) % 360 + 360) % 360 - 180; // same angle
+    const [lo, hi] = NUM_RANGES[k];
+    return clamp(n, lo, hi);
+  }
+  const cleanId = v => (typeof v === 'string' && /^[\w-]{1,100}$/.test(v) ? v : null);
+  // Returns the props `it` actually carries (plus the frame, always), each one validated.
+  function sanitizeLayer(it) {
+    const src = it && typeof it === 'object' ? it : {};
+    const out = {};
+    for (const k of LAYER_PROPS) {
+      const v = src[k], d = LAYER_DEFAULTS[k];
+      if (v === undefined && !FRAME_PROPS.has(k)) continue;
+      if (k in NUM_RANGES) out[k] = cleanNum(k, v, d);
+      else if (COLOUR_PROPS.has(k)) out[k] = hexOr(v, d);
+      else if (BOOL_PROPS.has(k)) out[k] = v === true;
+      else if (k in ENUM_PROPS) out[k] = ENUM_PROPS[k].has(v) ? v : d;
+      else if (k === 'font') out[k] = typeof v === 'string' && FONT_BY.has(v) ? v : d;
+      else if (k === 'text') out[k] = String(v ?? '');
+      else if (k === 'name') out[k] = String(v ?? '').slice(0, 300);
+      else if (k === 'pts') {
+        const ok = Array.isArray(v) && v.length % 2 === 0 && v.every(n => typeof n === 'number' && Number.isFinite(n));
+        out[k] = ok ? v.slice() : null;
+      }
+    }
+    return out;
+  }
+  // The same clamp, applied in place to a layer on the canvas (see NUM_RANGES). A frame clamped in
+  // size keeps its centre; everything else ends up exactly as sanitizeLayer would leave it.
+  function keepInRange(l) {
+    for (const [k, at] of [['w', 'x'], ['h', 'y']]) {
+      const v = l[k], n = cleanNum(k, v, LAYER_DEFAULTS[k]);
+      if (n === v) continue;
+      if (Number.isFinite(v) && Number.isFinite(l[at])) l[at] += (v - n) / 2;
+      l[k] = n;
+    }
+    for (const k in NUM_RANGES) {
+      if (l[k] === undefined) continue;
+      const n = cleanNum(k, l[k], LAYER_DEFAULTS[k]);
+      if (n !== l[k]) l[k] = n;
+    }
+  }
+  // `ids` = the photo ids that actually exist; the blurred background may only point at one of them.
+  // Missing ratio / quality keep the current choice (older files lack them), everything else defaults.
+  function sanitizeSettings(s, ids) {
+    const src = s && typeof s === 'object' ? s : {};
+    const num = (v, lo, hi, d) => { const n = toNum(v); return Number.isFinite(n) ? clamp(n, lo, hi) : d; };
+    return {
+      count: Math.round(num(src.count, 1, 20, 3)),
+      ratio: RATIOS.has(toNum(src.ratio)) ? toNum(src.ratio) : null,
+      bg: hexOr(src.bg, '#ffffff'),
+      quality: src.quality === 'jpg' || src.quality === 'png' ? src.quality : null,
+      bgType: ['solid', 'gradient', 'photo'].includes(src.bgType) ? src.bgType : 'solid',
+      bg2: hexOr(src.bg2, '#b7c7ff'),
+      bgAngle: num(src.bgAngle, 0, 360, 90),
+      bgPhoto: typeof src.bgPhoto === 'string' && ids.has(src.bgPhoto) ? src.bgPhoto : '',
+      bgBlur: num(src.bgBlur, 0, 200, 40),
+      bgDim: num(src.bgDim, 0, 90, 20),
+    };
+  }
+
+  // An SVG is inert inside an <img>, but its blob: URL opened as a page of its own (the layer
+  // thumbnail's "open image in new tab") runs any script in the file with this page's origin, and
+  // a project file can carry one. So an SVG photo keeps no URL once it is decoded: the thumbnail
+  // shows a small raster copy, and the original bytes stay in `blob` for saving.
+  // '' when the copy cannot be read back: the SVG tainted the canvas (see unreadableMsg).
+  function rasterThumb(img) {
+    const k = Math.min(1, 160 / Math.max(img.naturalWidth, img.naturalHeight));
+    const cv = makeCanvas(Math.max(1, Math.round(img.naturalWidth * k)), Math.max(1, Math.round(img.naturalHeight * k)));
+    try {
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      return cv.toDataURL('image/png');
+    } catch { return ''; }
+  }
+  // A picture the browser will not let the page read back once drawn (an SVG with <foreignObject>,
+  // in Chromium and Safari) taints every canvas it touches, so nothing it is in can be exported or
+  // shared, and Safari's pixel filters throw on it. It is refused when it is added (loadPhoto); the
+  // export and share buttons say the same if one ever gets through.
+  const unreadableMsg = name => `這張照片（${name}）含有瀏覽器不允許匯出的內容，請改用 PNG 或 JPG。`;
+  function readable(img) {
+    try {
+      const c = makeCanvas(1, 1).getContext('2d');
+      c.drawImage(img, 0, 0, 1, 1);
+      c.getImageData(0, 0, 1, 1);
+      return true;
+    } catch { return false; }
+  }
+
   // Decode once; also build a smaller bitmap so editing never resamples the full-size original.
+  // Only an image/* blob is accepted, whichever way it arrived (#file, 換照片 / an empty slot, a drop,
+  // a project file, an autosave record): the layer list shows the photo through this blob: URL,
+  // and a blob: URL of another type (text/html with a PNG in front of it still decodes as a photo)
+  // runs as a page with this site's origin when it is opened in a new tab.
   async function loadPhoto(blob, name, imgId) {
-    const url = URL.createObjectURL(blob);
+    if (!(blob instanceof Blob) || !/^image\//i.test(blob.type)) {
+      alert(`無法讀取照片：${name}`);
+      return null;
+    }
+    let url = URL.createObjectURL(blob);
     const img = new Image();
     // Wait for `load`, not img.decode(): decode() can reject for very large photos that load fine.
     const ok = await new Promise(res => { img.onload = () => res(true); img.onerror = () => res(false); img.src = url; });
@@ -2603,6 +3022,11 @@
       return null;
     }
     await img.decode().catch(() => {}); // best effort: pre-decode off the main thread
+    if (/svg/i.test(blob.type)) {
+      URL.revokeObjectURL(url);
+      url = rasterThumb(img);
+      if (!url) { alert(unreadableMsg(name)); return null; } // tainted: refused now, not at export
+    }
     const photo = { img, bmp: null, url, blob, imgId: imgId || crypto.randomUUID(), name };
     photoRegistry.set(photo.imgId, photo);
     const s = Math.min(1, WORK_MAX / Math.max(img.naturalWidth, img.naturalHeight));
@@ -2834,7 +3258,10 @@
 
   const addTemplateButtons = (list, host, apply) => list.forEach(t => {
     const b = document.createElement('button');
-    b.innerHTML = templateThumb(t) + `<span>${t.name}${t.count > 1 && host === 'pageTemplates' ? `（${t.count} 張）` : ''}</span>`;
+    b.innerHTML = templateThumb(t); // markup built only from the TEMPLATES constants above
+    const sp = document.createElement('span');
+    sp.textContent = t.name + (t.count > 1 && host === 'pageTemplates' ? `（${t.count} 張）` : '');
+    b.appendChild(sp);
     b.addEventListener('click', () => apply(t));
     $(host).appendChild(b);
   });
@@ -2858,15 +3285,26 @@
     syncProps();
     render();
   });
-  $('count').addEventListener('input', () => { renderLayerList(); render(); }); // the list marks off-canvas layers
+  $('count').addEventListener('input', e => {
+    const v = fieldNumber(e.target);
+    if (!Number.isNaN(v)) showClamped(e.target, v);
+    renderLayerList(); // the list marks off-canvas layers
+    render();
+  });
+  $('count').addEventListener('change', e => { e.target.value = slideCount(); });
   $('bg').addEventListener('input', () => render());
   $('bgType').addEventListener('input', () => { syncBgFields(); render(); });
   scrubbable('bgBlur');
   for (const id of ['bg2', 'bgPhoto', 'bgBlur', 'bgDim']) $(id).addEventListener('input', () => render());
   for (const id of ['bgAngle', 'bgAngleN']) $(id).addEventListener('input', e => {
-    $('bgAngle').value = $('bgAngleN').value = e.target.value;
+    const v = fieldNumber(e.target);
+    if (Number.isNaN(v)) return; // an emptied box must not reset the slider to its midpoint
+    $('bgAngle').value = v;
+    if (e.target.id === 'bgAngleN') showClamped(e.target, v);
+    else $('bgAngleN').value = v;
     render();
   });
+  $('bgAngleN').addEventListener('change', () => { $('bgAngleN').value = $('bgAngle').value; });
   syncBgFields();
   new ResizeObserver(() => { fitW = 0; render(); }).observe(wrap);
 
@@ -3099,8 +3537,11 @@
     else if (d.sx) w = Math.max(d.sx * v.x, MIN_SIZE);
     else h = Math.max(d.sy * v.y, MIN_SIZE);
     if (l.kind === 'text') {
-      // Corner handles scale the font; the frame is then re-fitted around the new text size.
-      l.fontSize = Math.max(8, d.fs0 * Math.max(0.05, h / d.h0));
+      // Corner handles scale the font; the frame is then re-fitted around the new text size. The
+      // biggest size is the 字級 box's max at the smallest ratio, scaled to this one: a ratio change
+      // keeps size / height, so no later ratio can push it past NUM_RANGES (which undo, autosave and
+      // project files are clamped to) and change the picture.
+      l.fontSize = clamp(d.fs0 * Math.max(0.05, h / d.h0), 8, FONT_PX_MAX * stripH() / MIN_H);
       const s = textBoxSize(l);
       l.w = s.w; l.h = s.h;
       const o = rotate(d.sx * l.w / 2, d.sy * l.h / 2, l.rot);
@@ -3285,7 +3726,7 @@
     }
     const step = e.shiftKey ? 10 : 1;
     const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
-    if (moves[e.key]) { if (!editable(l)) return; l.x += moves[e.key][0]; l.y += moves[e.key][1]; }
+    if (moves[e.key]) { if (!editable(l)) return; stopMotion(); l.x += moves[e.key][0]; l.y += moves[e.key][1]; }
     else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (!canRun(l, 'remove')) return;
       runAction('remove');
@@ -3317,7 +3758,7 @@
   // Busy and done states for the app-bar buttons. Only the label text and a class change — the
   // button keeps its own icon (replacing textContent used to wipe the icon out).
   const CHECK_SVG = '<svg class="ic state-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
-  for (const id of ['export', 'saveProj']) $(id).querySelector('svg.ic')?.insertAdjacentHTML('afterend', CHECK_SVG);
+  for (const id of ['export', 'shareOut', 'saveProj']) $(id).querySelector('svg.ic')?.insertAdjacentHTML('afterend', CHECK_SVG);
   function setBusy(btn, text) {
     const lbl = btn.querySelector('.lbl');
     if (lbl) { btn.dataset.label ??= lbl.textContent; lbl.textContent = text; }
@@ -3329,7 +3770,9 @@
   function setDone(btn, text, ok) {
     const lbl = btn.querySelector('.lbl');
     btn.classList.remove('busy');
-    btn.disabled = false;
+    // What the canvas holds now decides, not what it held when the job started: everything may
+    // have been deleted meanwhile. A project can always be saved.
+    btn.disabled = btn.id !== 'saveProj' && !hasExportable();
     const reset = () => { btn.classList.remove('done'); if (lbl) lbl.textContent = btn.dataset.label; };
     if (!ok) { reset(); return; }
     if (lbl) lbl.textContent = text;
@@ -3337,22 +3780,92 @@
     btn.__doneTimer = setTimeout(reset, 1600);
   }
 
+  // One naming scheme for the zip entries and the shared files: <first photo>_01.jpg …
+  // The photo's name can come from a project file, so only a plain file name is kept of it: no path
+  // separators or "..", no drive colon, no control or bidi characters, nothing else Windows refuses
+  // in a file name (Expand-Archive rejects the whole zip over one such entry), no leading dots, at
+  // most 60 characters. An empty result falls back to "carousel". Lookalikes of / \ : and . go too
+  // (fullwidth ／ ＼ ： ．, ∕ ⧸ ⁄ ∖ ﹨, the dot leaders ․ ‥ ﹒): a Windows "best fit" conversion turns
+  // them into the real characters. So do the invisible ones (zero-width space, word joiner, BOM,
+  // Arabic letter mark).
+  const UNSAFE_NAME = /[\\/:*?"<>|\p{Cc}\u{200e}\u{200f}\u{202a}-\u{202e}\u{2066}-\u{2069}\u{061c}\u{200b}\u{2060}\u{feff}\u{ff0f}\u{ff3c}\u{ff1a}\u{ff0e}\u{2215}\u{29f8}\u{2044}\u{2216}\u{fe68}\u{2024}\u{2025}\u{fe52}]/gu;
+  function exportBase() {
+    const name = String(state.layers.find(l => l.img)?.name || '').replace(/\.[^.]+$/, '');
+    const flat = name.replace(UNSAFE_NAME, '').replace(/\.{2,}/g, '').replace(/\s+/g, ' ').replace(/^[.\s]+/, '');
+    return [...flat].slice(0, 60).join('').trim() || 'carousel';
+  }
+  const sliceName = (base, i, type) => `${base}_${String(i + 1).padStart(2, '0')}.${type}`;
+
+  // Rendering or encoding the slides failed: say so instead of quietly putting the button back.
+  function exportFailed(err) {
+    console.warn('export failed', err);
+    if (err?.name !== 'SecurityError') { alert('輸出圖片失敗，請再試一次。'); return; }
+    const names = [...new Set(state.layers.filter(l => l.img && !readable(l.img)).map(l => l.name))];
+    alert(names.length ? unreadableMsg(names.join('、')) : '有照片含有瀏覽器不允許匯出的內容，請改用 PNG 或 JPG。');
+  }
+
   $('export').addEventListener('click', async () => {
     const btn = $('export');
+    if (btn.classList.contains('busy')) return; // one export at a time
     setBusy(btn, '輸出中…');
     let ok = false;
     try {
       const type = $('quality').value;
-      const base = (state.layers.find(l => l.img)?.name || 'carousel').replace(/\.[^.]+$/, '');
+      const base = exportBase();
       const { blobs } = await exportSlices(type);
       const files = await Promise.all(blobs.map(async (b, i) => ({
-        name: `${base}_${String(i + 1).padStart(2, '0')}.${type}`,
+        name: sliceName(base, i, type),
         data: new Uint8Array(await b.arrayBuffer()),
       })));
       download(makeZip(files), `${base}_carousel.zip`);
       ok = true;
+    } catch (err) {
+      exportFailed(err);
     } finally {
       setDone(btn, '已下載', ok);
+    }
+  });
+
+  // iPhone: a zip lands in Files, where Photos and Instagram cannot see it. The share sheet takes
+  // the slices as images instead (Save Image, Instagram…). Shown only where the browser says it
+  // can share image files, which leaves it hidden on most desktop browsers.
+  const CAN_SHARE_FILES = (() => {
+    try {
+      return typeof navigator.share === 'function' && typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [new File([new Blob(['x'])], 'x.png', { type: 'image/png' })] }) === true;
+    } catch { return false; }
+  })();
+  $('shareOut').hidden = !CAN_SHARE_FILES;
+  // The share sheet may only open shortly after a tap. If rendering the slides took longer, the
+  // browser refuses with NotAllowedError; the files are then kept, and the next tap shares them
+  // straight away as long as nothing in the scene or the format changed (dropShareRetry).
+  $('quality').addEventListener('change', dropShareRetry);
+  $('shareOut').addEventListener('click', async () => {
+    const btn = $('shareOut');
+    if (btn.classList.contains('busy')) return;
+    const type = $('quality').value;
+    let files = readyShare && readyShare.rev === sceneRev && readyShare.type === type ? readyShare.files : null;
+    const rev = files ? readyShare.rev : sceneRev;
+    readyShare = null;
+    btn.classList.remove('retry');
+    setBusy(btn, '準備中…');
+    let ok = false, retry = false;
+    try {
+      if (!files) {
+        const base = exportBase();
+        const { blobs } = await exportSlices(type);
+        const mime = type === 'png' ? 'image/png' : 'image/jpeg';
+        files = blobs.map((b, i) => new File([b], sliceName(base, i, type), { type: mime }));
+      }
+      await navigator.share({ files, title: '輪播圖片' });
+      ok = true;
+    } catch (e) {
+      if (!files) exportFailed(e); // the slides could not be made, so 下載全部 would fail too
+      else if (e?.name === 'NotAllowedError') { readyShare = { files, rev, type }; retry = true; }
+      else if (e?.name !== 'AbortError') alert('分享失敗，請改用「下載全部」。');
+    } finally {
+      setDone(btn, '已分享', ok);
+      if (retry) { btn.classList.add('retry'); btn.querySelector('.lbl').textContent = '再按一次'; }
     }
   });
 
@@ -3413,22 +3926,40 @@
     bgType: $('bgType').value, bg2: $('bg2').value, bgAngle: Number($('bgAngle').value),
     bgPhoto: $('bgPhoto').value || '', bgBlur: Number($('bgBlur').value), bgDim: Number($('bgDim').value),
   });
-  // Older project files have none of the background keys; each falls back to its default.
+  // Takes the output of sanitizeSettings. Older project files have none of the background keys;
+  // each falls back to its default there.
   function applySettings(s) {
-    $('count').value = s.count ?? 3;
-    if ([...$('ratio').options].some(o => Number(o.value) === Number(s.ratio))) $('ratio').value = String(s.ratio);
+    $('count').value = s.count;
+    if (s.ratio) $('ratio').value = String(s.ratio);
     lastH = stripH();
-    $('bg').value = s.bg || '#ffffff';
+    $('bg').value = s.bg;
     if (s.quality) $('quality').value = s.quality;
-    $('bgType').value = s.bgType || 'solid';
-    $('bg2').value = s.bg2 || '#b7c7ff';
-    $('bgAngle').value = $('bgAngleN').value = s.bgAngle ?? 90;
-    $('bgBlur').value = s.bgBlur ?? 40;
-    $('bgDim').value = s.bgDim ?? 20;
+    $('bgType').value = s.bgType;
+    $('bg2').value = s.bg2;
+    $('bgAngle').value = $('bgAngleN').value = s.bgAngle;
+    $('bgBlur').value = s.bgBlur;
+    $('bgDim').value = s.bgDim;
     bgPhotoWanted = s.bgPhoto || null;
     syncBgFields();
   }
   const pick = l => Object.fromEntries(LAYER_PROPS.map(k => [k, l[k]]));
+  // A project file is untrusted input: `dataUrl` must be an inline base64 image and is decoded
+  // right here. Never fetch() it — any other string (https:, blob:, javascript:, data:text/html,
+  // anything after the payload) would make opening a file send a request or load something that
+  // is not a picture. Any image/<subtype> is accepted, because Save writes whatever type the photo
+  // came in with and #file takes image/* (an SVG or an ICO must reopen too); the bytes then go
+  // through loadPhoto, the same path as a photo picked from disk. Returns null to refuse.
+  const DATA_URL_RE = /^data:image\/([a-z0-9.+-]{1,40});base64,[A-Za-z0-9+/=\s]+$/i;
+  function dataUrlToBlob(s) {
+    const m = typeof s === 'string' ? DATA_URL_RE.exec(s) : null;
+    if (!m) return null;
+    const sub = m[1].toLowerCase();
+    const type = 'image/' + (sub === 'jpg' ? 'jpeg' : sub);
+    const bin = atob(s.slice(s.indexOf(',') + 1).replace(/\s+/g, ''));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type });
+  }
   const blobToDataUrl = blob => new Promise((res, rej) => {
     const fr = new FileReader();
     fr.onload = () => res(fr.result);
@@ -3448,14 +3979,17 @@
     // suspended until the new layers are on the canvas below.
     restoreDepth++;
     try {
-      for (const it of items) {
+      for (const raw of items) {
+        const it = raw && typeof raw === 'object' ? raw : {};
+        const props = sanitizeLayer(it), imgId = cleanId(it.imgId);
         let photo = null;
-        const key = it.imgId || it.dataUrl;
+        const key = imgId || it.dataUrl;
         try {
           if (key && cache.has(key)) photo = cache.get(key);
           else if (it.blob || it.dataUrl) {
-            const blob = it.blob || await (await fetch(it.dataUrl)).blob();
-            photo = await loadPhoto(blob, it.name, it.imgId);
+            // Only a real Blob (autosave) or a validated data: URL; anything else stays an empty slot.
+            const blob = it.blob instanceof Blob ? it.blob : it.blob ? null : dataUrlToBlob(it.dataUrl);
+            if (blob) photo = await loadPhoto(blob, props.name ?? '', imgId);
             if (key && photo) cache.set(key, photo);
           }
         } catch (err) {
@@ -3463,8 +3997,8 @@
           photo = null;
         }
         if (!photo && (it.blob || it.dataUrl)) missing++;
-        const l = newLayer(photo ? photoFields(photo) : {}, it.w, it.h, it.x, it.y);
-        for (const k of LAYER_PROPS) if (it[k] !== undefined) l[k] = it[k];
+        const l = newLayer(photo ? photoFields(photo) : {}, props.w, props.h, props.x, props.y);
+        Object.assign(l, props);
         next.push(l);
       }
     } catch (err) {
@@ -3481,7 +4015,7 @@
     state.layers = next;
     state.sel = -1;
     state.crop = false;
-    applySettings(settings);
+    applySettings(sanitizeSettings(settings, new Set(next.filter(l => l.img).map(l => l.imgId))));
     renderLayerList();
     render();
     loadUsedFonts();
@@ -3490,8 +4024,8 @@
   }
 
   async function saveProjectFile() {
-    if (!state.layers.length) return;
     const btn = $('saveProj');
+    if (!state.layers.length || btn.classList.contains('busy')) return; // Ctrl+S ignores a disabled button
     setBusy(btn, '儲存中…');
     let ok = false;
     try {
@@ -3617,11 +4151,19 @@
       });
       const mine = { savedAt: Date.now(), slot: slotId, ...settingsOf(),
         layers: state.layers.map(l => ({ ...pick(l), imgId: l.img ? l.imgId : null })) };
-      await idb('readwrite', s => {
-        for (const l of state.layers) {
-          const key = 'img:' + l.imgId;
-          if (l.img && !stored.has(key)) { s.put(l.blob, key); stored.add(key); }
+      // Safari (WebKit) fails the whole transaction when a value is a Blob/File ("transaction
+      // failed", on file:// and https alike), so a photo is stored as its bytes, { type, buf }.
+      // Reading them is async and a transaction closes at the first await, so it happens first.
+      const puts = [];
+      for (const l of state.layers) {
+        const key = 'img:' + l.imgId;
+        if (l.img && !stored.has(key)) {
+          stored.add(key);
+          puts.push([key, { type: l.blob.type, buf: await l.blob.arrayBuffer() }]);
         }
+      }
+      await idb('readwrite', s => {
+        for (const [key, v] of puts) s.put(v, key);
         for (const k of stale) s.delete(k);
         for (const k of stored) if (!keep.has(k)) s.delete(k);
         s.put(mine, layoutKey);
@@ -3633,6 +4175,9 @@
       autosaveUnavailable(err);
     }
   }
+  // A stored photo is { type, buf } (see autosave); versions before that stored the Blob itself.
+  const storedPhoto = v => (v instanceof Blob ? v
+    : v && v.buf instanceof ArrayBuffer ? new Blob([v.buf], { type: String(v.type || '') }) : null);
   // Prefers this tab's own record; otherwise the most recently saved one (including the single
   // record older versions wrote). Photos whose blob is gone stay as empty slots.
   async function restoreAutosave() {
@@ -3660,14 +4205,17 @@
       let missing = 0;
       for (const it of rec.layers) {
         if (!it.imgId) { items.push(it); continue; }
-        const blob = blobs.get('img:' + it.imgId);
+        const blob = storedPhoto(blobs.get('img:' + it.imgId));
         if (blob) items.push({ ...it, blob });
         else { missing++; items.push({ ...it, imgId: null }); } // keep the layer as an empty slot
       }
       if (!await restoreProject(rec, items)) return;
-      const when = rec.savedAt ? new Date(rec.savedAt).toLocaleString() : '';
+      // The time is shown only when it is believable (autosave writes Date.now(), but the record may
+      // come from another version or be damaged): otherwise the note just leaves it out.
+      const t = new Date(rec.savedAt).getTime();
+      const when = t >= Date.UTC(2020, 0, 1) && t <= Date.now() + 864e5 ? `（${new Date(t).toLocaleString()}）` : '';
       const where = from === 'own' ? '這個分頁上次的排版' : from === 'legacy' ? '舊版自動暫存的排版' : '最近一次自動暫存的排版（來自其他分頁）';
-      $('autosave').textContent = `已還原${where}（${when}）` +
+      $('autosave').textContent = `已還原${where}${when}` +
         (missing ? `，其中 ${missing} 張照片已遺失，留成空白欄位` : '');
       keepRestoreNote = true;
     } catch (err) {
@@ -3733,12 +4281,12 @@
   function applySnapshot(s) {
     const d = JSON.parse(s);
     setBrush(false);
-    applySettings(d);
+    applySettings(sanitizeSettings(d, new Set(photoRegistry.keys())));
     state.layers = d.layers.map(it => {
-      const p = it.imgId ? photoRegistry.get(it.imgId) : null;
-      const l = newLayer(p ? photoFields(p) : {}, it.w, it.h, it.x, it.y);
-      for (const k of LAYER_PROPS) if (it[k] !== undefined) l[k] = it[k];
-      return l;
+      const p = typeof it?.imgId === 'string' ? photoRegistry.get(it.imgId) : null;
+      const props = sanitizeLayer(it);
+      const l = newLayer(p ? photoFields(p) : {}, props.w, props.h, props.x, props.y);
+      return Object.assign(l, props);
     });
     state.sel = Math.min(state.sel, state.layers.length - 1);
     state.crop = false;
@@ -3799,7 +4347,28 @@
     $('themeBtn').setAttribute('aria-pressed', String(dark));
   };
   applyTheme();
+  // While the circle plays, the page shows snapshots, so anything the user does next would land
+  // unseen. The next press or key finishes the running transition at once.
+  let themeVT = null, pressInVT = false;
+  const skipThemeVT = () => { if (!themeVT) return false; themeVT.skipTransition(); themeVT = null; return true; };
+  addEventListener('pointerdown', () => { pressInVT = skipThemeVT(); }, true);
+  addEventListener('keydown', skipThemeVT, true);
+  // Chromium hit-tests a press that starts during the transition as <html>, even with
+  // pointer-events: none on the overlay (measured in Chromium 143), so the click that follows is
+  // aimed at <html> and the button under the finger never hears it. Hand it on.
+  addEventListener('click', e => {
+    const was = pressInVT;
+    pressInVT = false;
+    if (!was || e.target !== root) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const hit = el && el.closest('button, a[href], summary, label, input, select, textarea, [tabindex]');
+    if (!hit || hit.disabled) return;
+    e.stopImmediatePropagation();
+    if (hit.matches('input, select, textarea')) hit.focus();
+    hit.click();
+  }, true);
   $('themeBtn').addEventListener('click', () => {
+    skipThemeVT();
     theme = theme === '' ? 'light' : theme === 'light' ? 'dark' : '';
     try { theme ? localStorage.setItem('igc-theme', theme) : localStorage.removeItem('igc-theme'); } catch (_) {}
     // The new theme spreads out from the button as a circle; without View Transitions or with
@@ -3808,10 +4377,12 @@
     const r = $('themeBtn').getBoundingClientRect();
     const x = r.left + r.width / 2, y = r.top + r.height / 2;
     const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-    document.startViewTransition(applyTheme).ready.then(() => {
+    const vt = themeVT = document.startViewTransition(applyTheme);
+    vt.ready.then(() => {
       root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] },
         { duration: 600, easing: 'cubic-bezier(.22, 1, .36, 1)', pseudoElement: '::view-transition-new(root)' });
     }).catch(() => {});
+    vt.finished.finally(() => { if (themeVT === vt) themeVT = null; }).catch(() => {});
   });
 
   // Mobile tabs: the sidebar cards carry data-group; the bottom bar shows one group at a time.
@@ -3819,10 +4390,13 @@
   const groups = [...document.querySelectorAll('.side .group')];
   let current = 'layout', previous = 'layout';
   const pill = document.querySelector('.tab-pill');
-  // Size and place the highlight from the active button. Only the move animates; a resize jumps.
+  // Size and place the highlight from the active button. Only the move animates; a resize jumps,
+  // unless it lands while the highlight is still moving: then it re-aims the running move, so a
+  // layout change mid-move (a scrollbar coming or going) bends the path instead of snapping it.
   function placePill(animate) {
     const b = tabs.find(x => x.dataset.tab === current);
     if (!b || !pill) return;
+    if (!animate && pill.getAnimations().some(a => a.playState === 'running')) animate = true;
     if (!animate) pill.style.transition = 'none';
     pill.style.width = b.offsetWidth + 'px';
     pill.style.height = b.offsetHeight + 'px';
@@ -3879,9 +4453,9 @@
   mobile.addEventListener('change', place);
   place();
 
-  // Export button lives in the app bar; nudge the 畫布 tab's info when it becomes available.
+  // The export button lives in the app bar, away from the panels. The first time there is
+  // something to export, it glows once to point at the next step.
   const exp = $('export');
-  // The first time there is something to export, the button glows once to point at the next step.
   let pointed = false;
   new MutationObserver(() => {
     if (pointed || exp.disabled) return;
