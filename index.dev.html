@@ -3736,7 +3736,16 @@
   }
 
   // One naming scheme for the zip entries and the shared files: <first photo>_01.jpg …
-  const exportBase = () => (state.layers.find(l => l.img)?.name || 'carousel').replace(/\.[^.]+$/, '');
+  // The photo's name can come from a project file, so only a plain file name is kept of it: no path
+  // separators or "..", no drive colon, no control or bidi characters, nothing else Windows refuses
+  // in a file name (Expand-Archive rejects the whole zip over one such entry), no leading dots, at
+  // most 60 characters. An empty result falls back to "carousel".
+  const UNSAFE_NAME = /[\\/:*?"<>|\p{Cc}‎‏‪-‮⁦-⁩]/gu;
+  function exportBase() {
+    const name = String(state.layers.find(l => l.img)?.name || '').replace(/\.[^.]+$/, '');
+    const flat = name.replace(UNSAFE_NAME, '').replace(/\.{2,}/g, '').replace(/\s+/g, ' ').replace(/^[.\s]+/, '');
+    return [...flat].slice(0, 60).join('').trim() || 'carousel';
+  }
   const sliceName = (base, i, type) => `${base}_${String(i + 1).padStart(2, '0')}.${type}`;
 
   $('export').addEventListener('click', async () => {
