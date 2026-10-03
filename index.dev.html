@@ -1254,13 +1254,19 @@
   // left is a blur of 1-2 px on a large photo, which hits the cap (~0.4 s measured).
   const FALLBACK_BLUR_W = 1800;
   const FALLBACK_SIGMA = 2;
-  // Colour-only adjustments in the fallback work on one canvas the size of the result. iOS Safari
-  // refuses a canvas over about 16.7 MP (4096 x 4096), so that canvas is kept at most FALLBACK_COLOUR_W wide and under FALLBACK_COLOUR_PX in area
-  // (a tall photo hits the area cap first). Chromium has ctx.filter and never comes here.
-  const FALLBACK_COLOUR_W = 4096;
-  const FALLBACK_COLOUR_PX = 16e6;
-  const fallbackColourW = (natW, natH) =>
-    Math.max(1, Math.min(natW, FALLBACK_COLOUR_W, Math.floor(Math.sqrt(FALLBACK_COLOUR_PX * natW / natH))));
+  // Colour-only adjustments in the fallback work on one canvas the size of the result. iOS and iPadOS
+  // Safari refuse a canvas over about 16.7 MP (4096 x 4096), so there that canvas is kept at most
+  // 4096 wide and under 16 MP in area (a tall photo hits the area cap first). Desktop Safari has no
+  // such limit, and the cap would export a colour-adjusted wide photo softer, so every other browser
+  // without ctx.filter keeps the photo's own width up to MAX_FILTER_W, as the filter path does, with
+  // no side over FALLBACK_MAX_SIDE. Chromium has ctx.filter and never comes here.
+  // (iPadOS reports itself as a Mac; its touch points give it away.)
+  const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const FALLBACK_COLOUR_W = IOS ? 4096 : MAX_FILTER_W;
+  const FALLBACK_COLOUR_PX = IOS ? 16e6 : Infinity;
+  const FALLBACK_MAX_SIDE = 16384;
+  const fallbackColourW = (natW, natH) => Math.max(1, Math.min(natW, FALLBACK_COLOUR_W,
+    Math.floor(Math.sqrt(FALLBACK_COLOUR_PX * natW / natH)), Math.floor(FALLBACK_MAX_SIDE * natW / natH)));
   // Shrinks by halves to within 4x of `tw`, so the last drawImage averages neighbouring pixels
   // instead of sampling a few of them out of a much larger photo.
   function halveTo(src, natW, natH, tw) {
