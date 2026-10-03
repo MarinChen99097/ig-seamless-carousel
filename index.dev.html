@@ -3,9 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <!-- Defence in depth: the page loads nothing but its own inline code, Google Fonts, the Cubic 11
-     font from jsDelivr and the user's own photos (blob:/data:). Any other request — an injected
-     image, a CSS url(), a fetch — is refused by the browser even if a bug lets one through. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' blob: data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net blob: data:; worker-src blob:">
+     font from jsDelivr (only that font's folder: jsDelivr serves every public repository) and the
+     user's own photos (blob:/data:). Any other request — an injected image, a CSS url(), a fetch,
+     a <base> or a <form> pointed elsewhere — is refused by the browser even if a bug lets one
+     through. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://cdn.jsdelivr.net/gh/ACh-K/Cubic-11@main/fonts/web/ data:; img-src 'self' blob: data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net/gh/ACh-K/Cubic-11@main/fonts/web/ blob: data:; worker-src blob:; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f4f3f1" media="(prefers-color-scheme: light)">
