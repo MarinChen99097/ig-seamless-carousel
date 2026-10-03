@@ -2546,10 +2546,8 @@
   const editTarget = () => { const l = selected(); return editable(l) ? l : null; };
   const textTarget = () => { const l = editTarget(); return l && l.kind === 'text' ? l : null; };
 
-  // A number box takes whatever is typed into it, but nothing outside the box's own min..max may
-  // reach the picture: undo steps, autosave records and project files are clamped to NUM_RANGES on
-  // the way back in, which holds every box's range, so a value drawn now can never be changed by
-  // undoing some later, unrelated step. NaN when the field holds no number.
+  // A settings box (張數, the background angle) takes whatever is typed into it, clamped to the box's
+  // own min..max. NaN when the field holds no number.
   function fieldNumber(el) {
     const v = parseFloat(el.value), lo = parseFloat(el.min), hi = parseFloat(el.max);
     if (!Number.isFinite(v)) return NaN;
@@ -2567,8 +2565,13 @@
     const els = [$(id), numId && $(numId)].filter(Boolean);
     for (const el of els) {
       const other = els.find(x => x !== el);
+      // A layer prop goes through the very rule undo steps, autosave records and project files are
+      // cleaned with on the way back in (cleanNum: NUM_RANGES, an angle wraps to the same angle), so
+      // a value drawn now is never changed by undoing some later, unrelated step. The box's own
+      // min..max is not used: rotation wraps, and 字級 / 字距 / shadow may legitimately go past the
+      // box at taller ratios (the corner handles and ratio changes reach those values too).
       el.addEventListener('input', () => {
-        const l = editTarget(), v = fieldNumber(el);
+        const l = editTarget(), v = cleanNum(key, parseFloat(el.value), NaN);
         if (!l || Number.isNaN(v)) return;
         stopMotion();
         l[key] = v;
@@ -3000,7 +3003,15 @@
   }
 
   // Decode once; also build a smaller bitmap so editing never resamples the full-size original.
+  // Only an image/* blob is accepted, whichever way it arrived (#file, 換照片 / an empty slot, a drop,
+  // a project file, an autosave record): the layer list shows the photo through this blob: URL,
+  // and a blob: URL of another type (text/html with a PNG in front of it still decodes as a photo)
+  // runs as a page with this site's origin when it is opened in a new tab.
   async function loadPhoto(blob, name, imgId) {
+    if (!(blob instanceof Blob) || !/^image\//i.test(blob.type)) {
+      alert(`無法讀取照片：${name}`);
+      return null;
+    }
     let url = URL.createObjectURL(blob);
     const img = new Image();
     // Wait for `load`, not img.decode(): decode() can reject for very large photos that load fine.
@@ -3773,8 +3784,11 @@
   // The photo's name can come from a project file, so only a plain file name is kept of it: no path
   // separators or "..", no drive colon, no control or bidi characters, nothing else Windows refuses
   // in a file name (Expand-Archive rejects the whole zip over one such entry), no leading dots, at
-  // most 60 characters. An empty result falls back to "carousel".
-  const UNSAFE_NAME = /[\\/:*?"<>|\p{Cc}\u{200e}\u{200f}\u{202a}-\u{202e}\u{2066}-\u{2069}]/gu;
+  // most 60 characters. An empty result falls back to "carousel". Lookalikes of / \ : and . go too
+  // (fullwidth ／ ＼ ： ．, ∕ ⧸ ⁄ ∖ ﹨, the dot leaders ․ ‥ ﹒): a Windows "best fit" conversion turns
+  // them into the real characters. So do the invisible ones (zero-width space, word joiner, BOM,
+  // Arabic letter mark).
+  const UNSAFE_NAME = /[\\/:*?"<>|\p{Cc}\u{200e}\u{200f}\u{202a}-\u{202e}\u{2066}-\u{2069}\u{061c}\u{200b}\u{2060}\u{feff}\u{ff0f}\u{ff3c}\u{ff1a}\u{ff0e}\u{2215}\u{29f8}\u{2044}\u{2216}\u{fe68}\u{2024}\u{2025}\u{fe52}]/gu;
   function exportBase() {
     const name = String(state.layers.find(l => l.img)?.name || '').replace(/\.[^.]+$/, '');
     const flat = name.replace(UNSAFE_NAME, '').replace(/\.{2,}/g, '').replace(/\s+/g, ' ').replace(/^[.\s]+/, '');
