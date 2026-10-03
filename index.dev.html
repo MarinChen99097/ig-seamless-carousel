@@ -1873,7 +1873,7 @@
       if (sceneDirty) {
         // What is drawn must be what undo, autosave and a project file would give back.
         for (const l of state.layers) keepInRange(l);
-        const cached =drag && dragCache && dragCache.l === drag.l && dragCache.w === view.width && dragCache.h === view.height;
+        const cached = drag && dragCache && dragCache.l === drag.l && dragCache.w === view.width && dragCache.h === view.height;
         if (cached) {
           drawFromCache(); // previews/info/autosave wait until the gesture ends
         } else {
@@ -3016,7 +3016,7 @@
       url = rasterThumb(img);
       if (!url) { alert(unreadableMsg(name)); return null; } // tainted: refused now, not at export
     }
-    const photo ={ img, bmp: null, url, blob, imgId: imgId || crypto.randomUUID(), name };
+    const photo = { img, bmp: null, url, blob, imgId: imgId || crypto.randomUUID(), name };
     photoRegistry.set(photo.imgId, photo);
     const s = Math.min(1, WORK_MAX / Math.max(img.naturalWidth, img.naturalHeight));
     if (s < 1 && window.createImageBitmap) {
@@ -3774,7 +3774,7 @@
   // separators or "..", no drive colon, no control or bidi characters, nothing else Windows refuses
   // in a file name (Expand-Archive rejects the whole zip over one such entry), no leading dots, at
   // most 60 characters. An empty result falls back to "carousel".
-  const UNSAFE_NAME = /[\\/:*?"<>|\p{Cc}‎‏‪-‮⁦-⁩]/gu;
+  const UNSAFE_NAME = /[\\/:*?"<>|\p{Cc}\u{200e}\u{200f}\u{202a}-\u{202e}\u{2066}-\u{2069}]/gu;
   function exportBase() {
     const name = String(state.layers.find(l => l.img)?.name || '').replace(/\.[^.]+$/, '');
     const flat = name.replace(UNSAFE_NAME, '').replace(/\.{2,}/g, '').replace(/\s+/g, ' ').replace(/^[.\s]+/, '');
