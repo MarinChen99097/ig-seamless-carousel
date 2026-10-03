@@ -70,7 +70,9 @@
 
   /* ---------- base ---------- */
   *, *::before, *::after { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+  /* Whatever gets focus (Tab) is scrolled clear of the sticky app bar, with room for its focus ring;
+     on phones also clear of the fixed tab bar (see the 900px block). */
+  html { -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--appbar) + 8px); }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
@@ -179,7 +181,9 @@
   .seg.wide3 { grid-template-columns: repeat(3, 1fr); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chips button { padding: 5px 11px; min-height: 30px; font-size: 12px; border-radius: 999px; }
-  .emoji { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 150px; overflow-y: auto; padding: 2px; border-radius: var(--radius-sm); background: var(--panel-2); }
+  /* The grid scrolls, so it clips: 4px of padding (and of scroll padding) is the room a focus ring
+     (2px outline + 2px offset) needs around the cells at its edges. */
+  .emoji { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 150px; overflow-y: auto; padding: 4px; scroll-padding: 4px; border-radius: var(--radius-sm); background: var(--panel-2); }
   .emoji button { padding: 2px 0; min-height: 34px; font-size: 20px; border: 0; background: transparent; border-radius: 8px; }
 
   /* ---------- layout ---------- */
@@ -392,6 +396,7 @@
   @media (max-width: 1100px) { .shell { grid-template-columns: 300px minmax(0, 1fr); gap: 16px; } .templates { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 900px) {
     :root { --appbar: 52px; }
+    html { scroll-padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 8px); }
     .shell { display: flex; flex-direction: column; padding: 0 0 calc(var(--tabbar) + env(safe-area-inset-bottom) + 12px); }
     .main { order: -1; position: sticky; top: var(--appbar); z-index: 20; padding: 8px 10px 0; background: linear-gradient(var(--bg) 85%, transparent); }
     .main.tall { position: static; }
