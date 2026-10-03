@@ -1387,7 +1387,10 @@
   function filterPixels(c, w, h, adj, bs) {
     const colour = !isNeutral(adj);
     if (!colour && !(bs > 0)) return;
-    const img = c.getImageData(0, 0, w, h);
+    let img;
+    // A tainted source (see unreadableMsg) would throw here, out of render(), on every frame; it is
+    // left unfiltered instead so editing keeps working.
+    try { img = c.getImageData(0, 0, w, h); } catch { return; }
     if (colour) adjustPixels(img.data, adj);
     if (bs > 0) blurPixels(img, bs);
     c.putImageData(img, 0, 0);
@@ -2960,13 +2963,27 @@
   // thumbnail's "open image in new tab") runs any script in the file with this page's origin, and
   // a project file can carry one. So an SVG photo keeps no URL once it is decoded: the thumbnail
   // shows a small raster copy, and the original bytes stay in `blob` for saving.
+  // '' when the copy cannot be read back: the SVG tainted the canvas (see unreadableMsg).
   function rasterThumb(img) {
     const k = Math.min(1, 160 / Math.max(img.naturalWidth, img.naturalHeight));
     const cv = makeCanvas(Math.max(1, Math.round(img.naturalWidth * k)), Math.max(1, Math.round(img.naturalHeight * k)));
     try {
       cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
       return cv.toDataURL('image/png');
-    } catch { return ''; } // a canvas the SVG tainted cannot be read back
+    } catch { return ''; }
+  }
+  // A picture the browser will not let the page read back once drawn (an SVG with <foreignObject>,
+  // in Chromium and Safari) taints every canvas it touches, so nothing it is in can be exported or
+  // shared, and Safari's pixel filters throw on it. It is refused when it is added (loadPhoto); the
+  // export and share buttons say the same if one ever gets through.
+  const unreadableMsg = name => `這張照片（${name}）含有瀏覽器不允許匯出的內容，請改用 PNG 或 JPG。`;
+  function readable(img) {
+    try {
+      const c = makeCanvas(1, 1).getContext('2d');
+      c.drawImage(img, 0, 0, 1, 1);
+      c.getImageData(0, 0, 1, 1);
+      return true;
+    } catch { return false; }
   }
 
   // Decode once; also build a smaller bitmap so editing never resamples the full-size original.
@@ -2981,8 +2998,12 @@
       return null;
     }
     await img.decode().catch(() => {}); // best effort: pre-decode off the main thread
-    if (/svg/i.test(blob.type)) { URL.revokeObjectURL(url); url = rasterThumb(img); }
-    const photo = { img, bmp: null, url, blob, imgId: imgId || crypto.randomUUID(), name };
+    if (/svg/i.test(blob.type)) {
+      URL.revokeObjectURL(url);
+      url = rasterThumb(img);
+      if (!url) { alert(unreadableMsg(name)); return null; } // tainted: refused now, not at export
+    }
+    const photo ={ img, bmp: null, url, blob, imgId: imgId || crypto.randomUUID(), name };
     photoRegistry.set(photo.imgId, photo);
     const s = Math.min(1, WORK_MAX / Math.max(img.naturalWidth, img.naturalHeight));
     if (s < 1 && window.createImageBitmap) {
@@ -3748,6 +3769,14 @@
   }
   const sliceName = (base, i, type) => `${base}_${String(i + 1).padStart(2, '0')}.${type}`;
 
+  // Rendering or encoding the slides failed: say so instead of quietly putting the button back.
+  function exportFailed(err) {
+    console.warn('export failed', err);
+    if (err?.name !== 'SecurityError') { alert('輸出圖片失敗，請再試一次。'); return; }
+    const names = [...new Set(state.layers.filter(l => l.img && !readable(l.img)).map(l => l.name))];
+    alert(names.length ? unreadableMsg(names.join('、')) : '有照片含有瀏覽器不允許匯出的內容，請改用 PNG 或 JPG。');
+  }
+
   $('export').addEventListener('click', async () => {
     const btn = $('export');
     if (btn.classList.contains('busy')) return; // one export at a time
@@ -3763,6 +3792,8 @@
       })));
       download(makeZip(files), `${base}_carousel.zip`);
       ok = true;
+    } catch (err) {
+      exportFailed(err);
     } finally {
       setDone(btn, '已下載', ok);
     }
@@ -3802,7 +3833,8 @@
       await navigator.share({ files, title: '輪播圖片' });
       ok = true;
     } catch (e) {
-      if (e?.name === 'NotAllowedError') { readyShare = { files, rev, type }; retry = true; }
+      if (!files) exportFailed(e); // the slides could not be made, so 下載全部 would fail too
+      else if (e?.name === 'NotAllowedError') { readyShare = { files, rev, type }; retry = true; }
       else if (e?.name !== 'AbortError') alert('分享失敗，請改用「下載全部」。');
     } finally {
       setDone(btn, '已分享', ok);
