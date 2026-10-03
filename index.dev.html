@@ -668,8 +668,8 @@
             <input type="color" id="shadowColor">
           </div>
           <div class="inline" style="margin-top:6px">
-            <span class="label" style="margin:0;flex:none">X</span><input type="number" id="shadowX" step="1">
-            <span class="label" style="margin:0;flex:none">Y</span><input type="number" id="shadowY" step="1">
+            <span class="label" style="margin:0;flex:none">X</span><input type="number" id="shadowX" min="-2000" max="2000" step="1">
+            <span class="label" style="margin:0;flex:none">Y</span><input type="number" id="shadowY" min="-2000" max="2000" step="1">
             <button id="shadowOff" title="清除陰影">清除</button>
           </div>
         </div>
@@ -1855,7 +1855,9 @@
       frameNow = now;
       sizeCanvases();
       if (sceneDirty) {
-        const cached = drag && dragCache && dragCache.l === drag.l && dragCache.w === view.width && dragCache.h === view.height;
+        // What is drawn must be what undo, autosave and a project file would give back.
+        for (const l of state.layers) keepInRange(l);
+        const cached =drag && dragCache && dragCache.l === drag.l && dragCache.w === view.width && dragCache.h === view.height;
         if (cached) {
           drawFromCache(); // previews/info/autosave wait until the gesture ends
         } else {
@@ -2528,18 +2530,44 @@
   const editTarget = () => { const l = selected(); return editable(l) ? l : null; };
   const textTarget = () => { const l = editTarget(); return l && l.kind === 'text' ? l : null; };
 
+  // A number box takes whatever is typed into it, but nothing outside the box's own min..max may
+  // reach the picture: undo steps, autosave records and project files are clamped to NUM_RANGES on
+  // the way back in, which holds every box's range, so a value drawn now can never be changed by
+  // undoing some later, unrelated step. NaN when the field holds no number.
+  function fieldNumber(el) {
+    const v = parseFloat(el.value), lo = parseFloat(el.min), hi = parseFloat(el.max);
+    if (!Number.isFinite(v)) return NaN;
+    return clamp(v, Number.isFinite(lo) ? lo : -Infinity, Number.isFinite(hi) ? hi : Infinity);
+  }
+  // While a box is being typed in, it is left alone (rewriting it mid-number moves the caret and
+  // eats a typed "."), except to show the clamped value once what is typed is out of range and more
+  // digits cannot bring it back: 300 in a 20-200 box shows 200 at once, but a "1" on its way to
+  // "150" stays until the box is left (the layer already holds 20 meanwhile).
+  function showClamped(el, v) {
+    const n = parseFloat(el.value), lo = parseFloat(el.min);
+    if (n !== v && !(n >= 0 && lo > 0 && n < lo)) el.value = v;
+  }
   function bindProp(id, key, numId, fix) {
-    const apply = v => {
-      const l = editTarget();
-      if (!l || Number.isNaN(v)) return;
-      stopMotion();
-      l[key] = v;
-      if (fix) fix(l);
-      syncProps();
-      render();
-    };
-    $(id).addEventListener('input', e => apply(parseFloat(e.target.value)));
-    if (numId) $(numId).addEventListener('input', e => apply(parseFloat(e.target.value)));
+    const els = [$(id), numId && $(numId)].filter(Boolean);
+    for (const el of els) {
+      const other = els.find(x => x !== el);
+      el.addEventListener('input', () => {
+        const l = editTarget(), v = fieldNumber(el);
+        if (!l || Number.isNaN(v)) return;
+        stopMotion();
+        l[key] = v;
+        if (fix) fix(l);
+        if (el.type === 'number') {
+          if (other) other.value = v;
+          showClamped(el, v);
+        } else {
+          syncProps();
+        }
+        render();
+      });
+      // Leaving the box shows what the layer really holds (also after an empty box or a locked layer).
+      if (el.type === 'number') el.addEventListener('change', () => { if (selected()) syncProps(); });
+    }
   }
   function bindColour(id, key, relist) {
     $(id).addEventListener('input', e => {
@@ -2837,22 +2865,31 @@
     shape: new Set(['rect', 'rounded', 'ellipse', 'circle', 'triangle', 'star', 'heart', 'bubble', 'line', 'arrow']),
     align: new Set(['left', 'center', 'right']),
   };
-  // [min, max] of the slider or field that edits each number. Strip-pixel values are also rescaled
-  // when the ratio changes (see STRIP_PX_PROPS), so their range is widened by the largest possible
-  // ratio step, 1920 / 566. Geometry has no control and is only kept finite and sane.
-  const RATIO_SPAN = 1920 / 566;
+  // [min, max] of the slider or field that edits each number (f2: every one of them must lie inside
+  // these). Strip-pixel values are also rescaled when the ratio changes (see STRIP_PX_PROPS), so
+  // their range is widened by the largest possible ratio step, 1920 / 566, plus a hair for the
+  // rounding of a chain of steps. The frame and a stroke's base size have no control: moving,
+  // resizing and re-fitting (a long line of text, 高度填滿 on a long thin frame) can take them far
+  // past the strip, so they only get a generous bound, which render() also holds every live layer
+  // to (keepInRange). The text corner handles stop at FONT_PX_MAX for the same reason.
+  const RATIOS = new Set([1350, 1080, 1440, 1920, 566]);
+  const MIN_H = Math.min(...RATIOS), MAX_H = Math.max(...RATIOS);
+  const RATIO_SPAN = MAX_H / MIN_H;
+  const FRAME_MAX = 1e7;
+  const FONT_PX_MAX = 2000; // the 字級 box's max, at the smallest ratio
   const NUM_RANGES = {
-    x: [-1e5, 1e5], y: [-1e5, 1e5], w: [0.01, 1e5], h: [0.01, 1e5], baseW: [0, 1e5], baseH: [0, 1e5],
+    x: [-FRAME_MAX, FRAME_MAX], y: [-FRAME_MAX, FRAME_MAX], w: [0.01, FRAME_MAX], h: [0.01, FRAME_MAX],
+    baseW: [0, FRAME_MAX], baseH: [0, FRAME_MAX],
     rot: [-180, 180], radius: [0, 100], border: [0, 80], opacity: [10, 100], zoom: [1, 5], px: [-1, 1], py: [-1, 1],
     shadowBlur: [0, 120], shadowX: [-2000, 2000], shadowY: [-2000, 2000], lineW: [1, 120],
     bright: [20, 200], contrast: [20, 200], satur: [0, 250], warmth: [-100, 100], fade: [0, 100], blurPx: [0, 120],
-    fontSize: [8, 2000], lineHeight: [0.8, 3], letterSpacing: [-20, 120], strokeWidth: [0, 60], textBgPad: [0, 200],
+    fontSize: [8, FONT_PX_MAX], lineHeight: [0.8, 3], letterSpacing: [-20, 120], strokeWidth: [0, 60], textBgPad: [0, 200],
   };
   const FRAME_PROPS = new Set(['x', 'y', 'w', 'h']);
   for (const k of STRIP_PX_PROPS) {
     if (!FRAME_PROPS.has(k)) {
-      const [lo, hi] = NUM_RANGES[k];
-      NUM_RANGES[k] = [lo < 0 ? lo * RATIO_SPAN : lo / RATIO_SPAN, hi * RATIO_SPAN];
+      const [lo, hi] = NUM_RANGES[k], hair = 1 + 1e-9;
+      NUM_RANGES[k] = [lo < 0 ? lo * RATIO_SPAN * hair : lo / RATIO_SPAN / hair, hi * RATIO_SPAN * hair];
     }
   }
   const toNum = v => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN);
@@ -2885,7 +2922,21 @@
     }
     return out;
   }
-  const RATIOS = new Set([1350, 1080, 1440, 1920, 566]);
+  // The same clamp, applied in place to a layer on the canvas (see NUM_RANGES). A frame clamped in
+  // size keeps its centre; everything else ends up exactly as sanitizeLayer would leave it.
+  function keepInRange(l) {
+    for (const [k, at] of [['w', 'x'], ['h', 'y']]) {
+      const v = l[k], n = cleanNum(k, v, LAYER_DEFAULTS[k]);
+      if (n === v) continue;
+      if (Number.isFinite(v) && Number.isFinite(l[at])) l[at] += (v - n) / 2;
+      l[k] = n;
+    }
+    for (const k in NUM_RANGES) {
+      if (l[k] === undefined) continue;
+      const n = cleanNum(k, l[k], LAYER_DEFAULTS[k]);
+      if (n !== l[k]) l[k] = n;
+    }
+  }
   // `ids` = the photo ids that actually exist; the blurred background may only point at one of them.
   // Missing ratio / quality keep the current choice (older files lack them), everything else defaults.
   function sanitizeSettings(s, ids) {
@@ -3189,15 +3240,26 @@
     syncProps();
     render();
   });
-  $('count').addEventListener('input', () => { renderLayerList(); render(); }); // the list marks off-canvas layers
+  $('count').addEventListener('input', e => {
+    const v = fieldNumber(e.target);
+    if (!Number.isNaN(v)) showClamped(e.target, v);
+    renderLayerList(); // the list marks off-canvas layers
+    render();
+  });
+  $('count').addEventListener('change', e => { e.target.value = slideCount(); });
   $('bg').addEventListener('input', () => render());
   $('bgType').addEventListener('input', () => { syncBgFields(); render(); });
   scrubbable('bgBlur');
   for (const id of ['bg2', 'bgPhoto', 'bgBlur', 'bgDim']) $(id).addEventListener('input', () => render());
   for (const id of ['bgAngle', 'bgAngleN']) $(id).addEventListener('input', e => {
-    $('bgAngle').value = $('bgAngleN').value = e.target.value;
+    const v = fieldNumber(e.target);
+    if (Number.isNaN(v)) return; // an emptied box must not reset the slider to its midpoint
+    $('bgAngle').value = v;
+    if (e.target.id === 'bgAngleN') showClamped(e.target, v);
+    else $('bgAngleN').value = v;
     render();
   });
+  $('bgAngleN').addEventListener('change', () => { $('bgAngleN').value = $('bgAngle').value; });
   syncBgFields();
   new ResizeObserver(() => { fitW = 0; render(); }).observe(wrap);
 
@@ -3430,8 +3492,11 @@
     else if (d.sx) w = Math.max(d.sx * v.x, MIN_SIZE);
     else h = Math.max(d.sy * v.y, MIN_SIZE);
     if (l.kind === 'text') {
-      // Corner handles scale the font; the frame is then re-fitted around the new text size.
-      l.fontSize = Math.max(8, d.fs0 * Math.max(0.05, h / d.h0));
+      // Corner handles scale the font; the frame is then re-fitted around the new text size. The
+      // biggest size is the 字級 box's max at the smallest ratio, scaled to this one: a ratio change
+      // keeps size / height, so no later ratio can push it past NUM_RANGES (which undo, autosave and
+      // project files are clamped to) and change the picture.
+      l.fontSize = clamp(d.fs0 * Math.max(0.05, h / d.h0), 8, FONT_PX_MAX * stripH() / MIN_H);
       const s = textBoxSize(l);
       l.w = s.w; l.h = s.h;
       const o = rotate(d.sx * l.w / 2, d.sy * l.h / 2, l.rot);
