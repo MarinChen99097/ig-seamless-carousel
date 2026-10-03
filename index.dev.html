@@ -2905,9 +2905,22 @@
     };
   }
 
+  // An SVG is inert inside an <img>, but its blob: URL opened as a page of its own (the layer
+  // thumbnail's "open image in new tab") runs any script in the file with this page's origin, and
+  // a project file can carry one. So an SVG photo keeps no URL once it is decoded: the thumbnail
+  // shows a small raster copy, and the original bytes stay in `blob` for saving.
+  function rasterThumb(img) {
+    const k = Math.min(1, 160 / Math.max(img.naturalWidth, img.naturalHeight));
+    const cv = makeCanvas(Math.max(1, Math.round(img.naturalWidth * k)), Math.max(1, Math.round(img.naturalHeight * k)));
+    try {
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      return cv.toDataURL('image/png');
+    } catch { return ''; } // a canvas the SVG tainted cannot be read back
+  }
+
   // Decode once; also build a smaller bitmap so editing never resamples the full-size original.
   async function loadPhoto(blob, name, imgId) {
-    const url = URL.createObjectURL(blob);
+    let url = URL.createObjectURL(blob);
     const img = new Image();
     // Wait for `load`, not img.decode(): decode() can reject for very large photos that load fine.
     const ok = await new Promise(res => { img.onload = () => res(true); img.onerror = () => res(false); img.src = url; });
@@ -2917,6 +2930,7 @@
       return null;
     }
     await img.decode().catch(() => {}); // best effort: pre-decode off the main thread
+    if (/svg/i.test(blob.type)) { URL.revokeObjectURL(url); url = rasterThumb(img); }
     const photo = { img, bmp: null, url, blob, imgId: imgId || crypto.randomUUID(), name };
     photoRegistry.set(photo.imgId, photo);
     const s = Math.min(1, WORK_MAX / Math.max(img.naturalWidth, img.naturalHeight));
@@ -3796,13 +3810,18 @@
     syncBgFields();
   }
   const pick = l => Object.fromEntries(LAYER_PROPS.map(k => [k, l[k]]));
-  // A project file is untrusted input: `dataUrl` must be an inline base64 raster image and is
-  // decoded right here. Never fetch() it — any other string (https:, blob:, javascript:, an SVG)
-  // would make opening a file send a request or load active content. Returns null to refuse.
-  const DATA_URL_RE = /^data:image\/(png|jpeg|jpg|webp|gif|avif|bmp);base64,[A-Za-z0-9+/=\s]+$/i;
+  // A project file is untrusted input: `dataUrl` must be an inline base64 image and is decoded
+  // right here. Never fetch() it — any other string (https:, blob:, javascript:, data:text/html,
+  // anything after the payload) would make opening a file send a request or load something that
+  // is not a picture. Any image/<subtype> is accepted, because Save writes whatever type the photo
+  // came in with and #file takes image/* (an SVG or an ICO must reopen too); the bytes then go
+  // through loadPhoto, the same path as a photo picked from disk. Returns null to refuse.
+  const DATA_URL_RE = /^data:image\/([a-z0-9.+-]{1,40});base64,[A-Za-z0-9+/=\s]+$/i;
   function dataUrlToBlob(s) {
-    if (typeof s !== 'string' || !DATA_URL_RE.test(s)) return null;
-    const type = 'image/' + s.slice(11, s.indexOf(';')).toLowerCase().replace('jpg', 'jpeg');
+    const m = typeof s === 'string' ? DATA_URL_RE.exec(s) : null;
+    if (!m) return null;
+    const sub = m[1].toLowerCase();
+    const type = 'image/' + (sub === 'jpg' ? 'jpeg' : sub);
     const bin = atob(s.slice(s.indexOf(',') + 1).replace(/\s+/g, ''));
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
